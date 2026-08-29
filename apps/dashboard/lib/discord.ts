@@ -14,6 +14,7 @@ interface CacheEntry<T> {
   at: number;
 }
 const cache = new Map<string, CacheEntry<unknown>>();
+const inflight = new Map<string, Promise<unknown>>();
 const TTL = 60_000;
 
 async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
@@ -22,6 +23,41 @@ async function cached<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
   const value = await fetcher();
   cache.set(key, { value, at: Date.now() });
   return value;
+}
+
+/**
+ * Like `cached`, but:
+ *  - a fetcher that throws never poisons the cache;
+ *  - on failure the last good value is served (any age) instead of throwing;
+ *  - concurrent callers for the same key share one in-flight request.
+ * Used for the OAuth guild list, which gates access and must not flap to "empty"
+ * on a transient Discord 429.
+ */
+async function resilient<T>(
+  key: string,
+  ttl: number,
+  fetcher: () => Promise<T>,
+): Promise<T> {
+  const hit = cache.get(key) as CacheEntry<T> | undefined;
+  if (hit && Date.now() - hit.at < ttl) return hit.value;
+
+  const running = inflight.get(key) as Promise<T> | undefined;
+  if (running) return running;
+
+  const p = (async () => {
+    try {
+      const value = await fetcher();
+      cache.set(key, { value, at: Date.now() });
+      return value;
+    } catch (err) {
+      if (hit) return hit.value; // serve stale rather than lock the user out
+      throw err;
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+  inflight.set(key, p);
+  return p;
 }
 
 export function bustDiscordCache(prefix?: string): void {
@@ -41,31 +77,55 @@ export interface UserGuild {
   permissions: string;
 }
 
-/** Guilds the user is in where they can Manage Server (or own). */
-export async function getManageableGuilds(
+const GUILDS_TTL = 5 * 60_000;
+
+async function fetchManageableGuilds(
   accessToken: string,
 ): Promise<UserGuild[]> {
-  const guilds = await cached(
-    `userguilds:${tokenKey(accessToken)}`,
-    async () => {
-      const res = await fetch(`${API}/users/@me/guilds`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      });
-      if (!res.ok) return [] as UserGuild[];
-      return (await res.json()) as UserGuild[];
-    },
-  );
-  return guilds.filter(
-    (g) => g.owner || (BigInt(g.permissions) & BigInt(MANAGE_GUILD)) !== 0n,
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch(`${API}/users/@me/guilds`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const all = (await res.json()) as UserGuild[];
+      return all.filter(
+        (g) => g.owner || (BigInt(g.permissions) & BigInt(MANAGE_GUILD)) !== 0n,
+      );
+    }
+    // One retry on rate-limit, honouring Retry-After (capped).
+    if (res.status === 429 && attempt === 0) {
+      const wait = Number(res.headers.get("retry-after") ?? "1") * 1000;
+      await new Promise((r) => setTimeout(r, Math.min(wait || 1000, 5000)));
+      continue;
+    }
+    throw new Error(`discord /users/@me/guilds -> ${res.status}`);
+  }
+  throw new Error("discord /users/@me/guilds -> retries exhausted");
+}
+
+/**
+ * Guilds the user can Manage Server (or owns). `userKey` (the Discord user id)
+ * keeps the cache stable across access-token rotation; falls back to a token
+ * hash. Throws only when there is no fresh *and* no stale value to serve.
+ */
+export async function getManageableGuilds(
+  accessToken: string,
+  userKey?: string,
+): Promise<UserGuild[]> {
+  return resilient(
+    `userguilds:${userKey ?? tokenKey(accessToken)}`,
+    GUILDS_TTL,
+    () => fetchManageableGuilds(accessToken),
   );
 }
 
 export async function userCanManageGuild(
   accessToken: string,
   guildId: string,
+  userKey?: string,
 ): Promise<boolean> {
-  const guilds = await getManageableGuilds(accessToken);
+  const guilds = await getManageableGuilds(accessToken, userKey);
   return guilds.some((g) => g.id === guildId);
 }
 

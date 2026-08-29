@@ -18,7 +18,16 @@ export default async function GuildPicker({
   searchParams: { error?: string };
 }) {
   const session = await requireSession();
-  const guilds = await getManageableGuilds(session.accessToken!);
+  let guilds: Awaited<ReturnType<typeof getManageableGuilds>> = [];
+  let discordDown = false;
+  try {
+    guilds = await getManageableGuilds(
+      session.accessToken!,
+      session.user?.discordId,
+    );
+  } catch {
+    discordDown = true;
+  }
   const present = new Set(
     repos.guilds.listPresentGuilds(db()).map((g) => g.guildId),
   );
@@ -51,6 +60,13 @@ export default async function GuildPicker({
       {searchParams.error === "no-access" && (
         <p className="mb-4 rounded-md bg-discord-red/20 px-4 py-2 text-sm text-red-300">
           You don&apos;t have Manage Server permission on that guild.
+        </p>
+      )}
+      {(searchParams.error === "discord-unavailable" || discordDown) && (
+        <p className="mb-4 rounded-md bg-amber-500/20 px-4 py-2 text-sm text-amber-200">
+          Couldn&apos;t reach Discord to check your servers (it may be
+          rate-limiting). Wait a minute and refresh — you haven&apos;t lost
+          access.
         </p>
       )}
       {searchParams.error === "bot-not-in-guild" && (

@@ -24,7 +24,17 @@ export async function requireGuildAccess(
   if (!repos.guilds.isGuildPresent(db(), guildId)) {
     redirect("/dashboard?error=bot-not-in-guild");
   }
-  const ok = await userCanManageGuild(session.accessToken, guildId);
+  let ok: boolean;
+  try {
+    ok = await userCanManageGuild(
+      session.accessToken,
+      guildId,
+      session.user.discordId,
+    );
+  } catch {
+    // Couldn't reach Discord to verify — don't imply the user lost access.
+    redirect("/dashboard?error=discord-unavailable");
+  }
   if (!ok) {
     redirect("/dashboard?error=no-access");
   }
@@ -47,7 +57,18 @@ export async function checkGuildAccess(
     return null;
   }
   if (!repos.guilds.isGuildPresent(db(), guildId)) return null;
-  if (!(await userCanManageGuild(session.accessToken, guildId))) return null;
+  try {
+    if (
+      !(await userCanManageGuild(
+        session.accessToken,
+        guildId,
+        session.user.discordId,
+      ))
+    )
+      return null;
+  } catch {
+    return null;
+  }
   return {
     guildId,
     userId: session.user.discordId,
