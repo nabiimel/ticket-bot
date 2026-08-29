@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -109,10 +110,34 @@ export default async function LandingPage({
             </li>
           ))}
         </ul>
+
+        <section className="w-full border-t border-line pt-8">
+          <h2 className="text-sm font-semibold">Privacy</h2>
+          <p className="mt-2 max-w-2xl text-sm text-dim">
+            The bot stores only what it needs to run your ticket system — server
+            configuration, ticket records, form answers, transcripts of closed
+            tickets, ratings and blacklist entries. Signing in to the dashboard
+            uses Discord OAuth (<code>identify</code> + <code>guilds</code>) to
+            show the servers you can manage. We don&apos;t sell your data, share
+            it for advertising, or run trackers. Server managers can delete
+            their data in the dashboard; anyone can request access or deletion
+            by contacting <span className="font-medium text-ink">ayban</span> on
+            Discord.
+          </p>
+          <Link
+            href="/privacy"
+            className="mt-2 inline-block text-sm text-accent hover:underline"
+          >
+            Read the full Privacy Policy →
+          </Link>
+        </section>
       </main>
 
       <footer className="mx-auto w-full max-w-5xl px-6 py-6 text-center text-xs text-faint">
-        Built by <span className="font-medium text-dim">ayban</span>
+        Built by <span className="font-medium text-dim">ayban</span> ·{" "}
+        <Link href="/privacy" className="hover:text-dim">
+          Privacy Policy
+        </Link>
       </footer>
     </div>
   );
