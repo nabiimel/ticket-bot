@@ -107,9 +107,9 @@ export default async function Overview({
         </div>
         <div className="stat">
           <div className="stat-value">
-            {fmtDuration(stats.avgSecondsToClaim)}
+            {fmtDuration(stats.avgSecondsToFirstReply)}
           </div>
-          <div className="stat-label">Avg time to claim</div>
+          <div className="stat-label">Avg first response</div>
         </div>
         <div className="stat">
           <div className="stat-value">

@@ -16,17 +16,21 @@ export async function execute(message: Message): Promise<void> {
   if (!ticket || ticket.status === "closed") return;
 
   let staff = false;
-  try {
-    const guildConfig = getGuildConfigCached(message.guildId);
-    const category =
-      getCategoriesCached(message.guildId).find(
-        (c) => c.id === ticket.categoryId,
-      ) ?? null;
-    const member =
-      message.member ?? (await message.guild.members.fetch(message.author.id));
-    staff = isStaff(member, guildConfig, category);
-  } catch {
-    /* ignore lookup failures, still bump activity */
+  // The opener answering their own ticket is never a "staff first reply".
+  if (message.author.id !== ticket.openerId) {
+    try {
+      const guildConfig = getGuildConfigCached(message.guildId);
+      const category =
+        getCategoriesCached(message.guildId).find(
+          (c) => c.id === ticket.categoryId,
+        ) ?? null;
+      const member =
+        message.member ??
+        (await message.guild.members.fetch(message.author.id));
+      staff = isStaff(member, guildConfig, category);
+    } catch {
+      /* ignore lookup failures, still bump activity */
+    }
   }
 
   repos.tickets.bumpActivity(db, message.channelId, { staff });

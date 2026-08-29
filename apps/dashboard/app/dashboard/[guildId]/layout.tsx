@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { auth, signOut } from "@/auth";
 import { requireGuildAccess } from "@/lib/guild-access";
 import { db, repos } from "@/lib/db";
@@ -7,6 +8,9 @@ import { Icon } from "@/components/icons";
 import { ToastProvider } from "@/components/Toast";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
+
+const SLA_UNCLAIMED_S = 30 * 60;
+const SLA_NO_REPLY_S = 60 * 60;
 
 export const dynamic = "force-dynamic";
 
@@ -31,13 +35,38 @@ export default async function GuildLayout({
   params: { guildId: string };
 }) {
   await requireGuildAccess(params.guildId);
+  const { guildId } = params;
   const session = await auth();
   const me = session?.user;
-  const guild = repos.guilds.getGuild(db(), params.guildId);
-  const suspended = repos.guildConfig.getGuildConfig(
-    db(),
-    params.guildId,
-  ).suspended;
+  const guild = repos.guilds.getGuild(db(), guildId);
+  const cfg = repos.guildConfig.getGuildConfig(db(), guildId);
+  const suspended = cfg.suspended;
+
+  // --- Sidebar attention badges (DB-only, no Discord calls) ---
+  const cats = repos.categories.listCategories(db(), guildId);
+  const panels = repos.panels.listPanels(db(), guildId);
+  const openTickets = repos.tickets.listOpenTickets(db(), guildId);
+  const nowS = Date.now() / 1000;
+  const overviewAlert =
+    cats.length === 0 ||
+    panels.filter((p) => p.status === "published").length === 0 ||
+    cats.some((c) => c.staffRoleIds.length === 0 && !cfg.defaultStaffRoleId) ||
+    panels.some((p) => p.status === "published" && !p.channelId) ||
+    openTickets.some(
+      (t) =>
+        (cfg.claimingEnabled &&
+          !t.claimedBy &&
+          nowS - t.createdAt > SLA_UNCLAIMED_S) ||
+        (!t.firstStaffMsgAt && nowS - t.createdAt > SLA_NO_REPLY_S),
+    );
+
+  const seenRaw = cookies().get(`tx_seen_${guildId}`)?.value;
+  const seenMs = seenRaw ? Number(seenRaw) : NaN;
+  const newTranscripts = Number.isFinite(seenMs)
+    ? repos.tickets
+        .listClosedTickets(db(), guildId, 100)
+        .filter((t) => t.closedAt && t.closedAt * 1000 > seenMs).length
+    : 0;
   // `guild.icon` may be a bare hash or (from older bot builds) a full CDN URL.
   const iconUrl = !guild?.icon
     ? null
@@ -113,9 +142,13 @@ export default async function GuildLayout({
             {NAV.map((item) => (
               <NavLink
                 key={item.href}
-                href={`/dashboard/${params.guildId}${item.href}`}
+                href={`/dashboard/${guildId}${item.href}`}
                 exact={item.href === ""}
                 icon={item.icon}
+                dot={item.href === "" && overviewAlert}
+                badge={
+                  item.href === "/transcripts" ? newTranscripts : undefined
+                }
               >
                 {item.label}
               </NavLink>

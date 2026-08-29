@@ -1,6 +1,7 @@
 import { db, repos } from "@/lib/db";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
+import { MarkSeen } from "@/components/MarkSeen";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default function TranscriptsPage({
 
   return (
     <div className="page">
+      <MarkSeen cookie={`tx_seen_${guildId}`} />
       <PageHeader
         title="Transcripts"
         description="Saved HTML logs of every closed ticket."

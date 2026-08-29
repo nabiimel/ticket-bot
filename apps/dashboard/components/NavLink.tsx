@@ -8,11 +8,17 @@ export function NavLink({
   href,
   exact,
   icon,
+  badge,
+  dot,
   children,
 }: {
   href: string;
   exact?: boolean;
   icon?: React.ReactNode;
+  /** Small count pill on the right. Omit / 0 to hide. */
+  badge?: number;
+  /** Red attention dot on the right (used when there's no count). */
+  dot?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -34,7 +40,15 @@ export function NavLink({
       >
         {icon}
       </span>
-      {children}
+      <span className="flex-1">{children}</span>
+      {badge != null && badge > 0 && (
+        <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+      {!badge && dot && (
+        <span className="h-2 w-2 rounded-full bg-[var(--danger)]" />
+      )}
     </Link>
   );
 }
