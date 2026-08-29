@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 
 const NAV = [
   { href: "", label: "Overview", icon: Icon.overview },
+  { href: "/tickets", label: "Tickets", icon: Icon.tickets },
   { href: "/general", label: "General", icon: Icon.general },
   { href: "/categories", label: "Categories", icon: Icon.categories },
   { href: "/panels", label: "Panels", icon: Icon.panels },
@@ -47,18 +48,19 @@ export default async function GuildLayout({
   const panels = repos.panels.listPanels(db(), guildId);
   const openTickets = repos.tickets.listOpenTickets(db(), guildId);
   const nowS = Date.now() / 1000;
+  const flaggedCount = openTickets.filter(
+    (t) =>
+      (cfg.claimingEnabled &&
+        !t.claimedBy &&
+        nowS - t.createdAt > SLA_UNCLAIMED_S) ||
+      (!t.firstStaffMsgAt && nowS - t.createdAt > SLA_NO_REPLY_S),
+  ).length;
   const overviewAlert =
+    flaggedCount > 0 ||
     cats.length === 0 ||
     panels.filter((p) => p.status === "published").length === 0 ||
     cats.some((c) => c.staffRoleIds.length === 0 && !cfg.defaultStaffRoleId) ||
-    panels.some((p) => p.status === "published" && !p.channelId) ||
-    openTickets.some(
-      (t) =>
-        (cfg.claimingEnabled &&
-          !t.claimedBy &&
-          nowS - t.createdAt > SLA_UNCLAIMED_S) ||
-        (!t.firstStaffMsgAt && nowS - t.createdAt > SLA_NO_REPLY_S),
-    );
+    panels.some((p) => p.status === "published" && !p.channelId);
 
   const seenRaw = cookies().get(`tx_seen_${guildId}`)?.value;
   const seenMs = seenRaw ? Number(seenRaw) : NaN;
@@ -147,7 +149,11 @@ export default async function GuildLayout({
                 icon={item.icon}
                 dot={item.href === "" && overviewAlert}
                 badge={
-                  item.href === "/transcripts" ? newTranscripts : undefined
+                  item.href === "/transcripts"
+                    ? newTranscripts
+                    : item.href === "/tickets"
+                      ? flaggedCount
+                      : undefined
                 }
               >
                 {item.label}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db, repos } from "@/lib/db";
+import { getGuildMemberNames, nameOf } from "@/lib/discord";
 import { PageHeader } from "@/components/PageHeader";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ function ago(sec: number): string {
   return `${Math.round(d / 86400)}d ago`;
 }
 
-export default function StatsPage({
+export default async function StatsPage({
   params,
   searchParams,
 }: {
@@ -31,6 +32,7 @@ export default function StatsPage({
   const days = Math.min(365, Math.max(1, Number(searchParams.days) || 30));
   const s = repos.stats.getGuildStats(db(), guildId, days);
   const extras = repos.stats.getStatsExtras(db(), guildId, days);
+  const names = await getGuildMemberNames(guildId);
   const max = Math.max(1, ...s.byCategory.map((c) => c.count));
 
   // Fill the day range so the chart has a continuous axis.
@@ -203,9 +205,7 @@ export default function StatsPage({
             <tbody>
               {s.perStaff.map((p) => (
                 <tr key={p.staffId} className="border-t border-line">
-                  <td className="py-1.5 font-mono text-xs">
-                    &lt;@{p.staffId}&gt;
-                  </td>
+                  <td className="py-1.5">{nameOf(names, p.staffId)}</td>
                   <td className="py-1.5">{p.claimed}</td>
                   <td className="py-1.5">{p.closed}</td>
                 </tr>

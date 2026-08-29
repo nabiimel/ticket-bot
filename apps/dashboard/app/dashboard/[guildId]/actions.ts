@@ -361,6 +361,58 @@ export async function deletePanel(guildId: string, panelId: number) {
   return { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// Open tickets (live console)
+// ---------------------------------------------------------------------------
+
+export async function claimTicketAdmin(guildId: string, ticketId: number) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const tk = repos.tickets.getTicket(db(), ticketId);
+  if (!tk || tk.guildId !== guildId || tk.status === "closed") {
+    return { ok: false, error: "Ticket not found or already closed" };
+  }
+  if (tk.claimedBy) return { ok: false, error: "Already claimed" };
+  await enqueueJob(guildId, "admin_claim_ticket", {
+    ticketId,
+    staffId: userId,
+  });
+  audit(
+    guildId,
+    userId,
+    "ticket.claim",
+    `Claimed ticket #${tk.number} from the dashboard`,
+  );
+  rev(guildId);
+  return { ok: true };
+}
+
+export async function closeTicketAdmin(
+  guildId: string,
+  ticketId: number,
+  reason?: string,
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const tk = repos.tickets.getTicket(db(), ticketId);
+  if (!tk || tk.guildId !== guildId || tk.status === "closed") {
+    return { ok: false, error: "Ticket not found or already closed" };
+  }
+  await enqueueJob(guildId, "admin_close_ticket", {
+    ticketId,
+    closedBy: userId,
+    reason: reason?.trim() || undefined,
+  });
+  audit(
+    guildId,
+    userId,
+    "ticket.close",
+    `Closed ticket #${tk.number} from the dashboard`,
+  );
+  rev(guildId);
+  return { ok: true };
+}
+
 export async function sendTest(
   guildId: string,
   channelId: string,

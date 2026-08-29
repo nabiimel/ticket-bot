@@ -192,7 +192,8 @@ export type JobType =
   | "edit_panel"
   | "sync_ticket_perms"
   | "post_preview"
-  | "admin_close_ticket";
+  | "admin_close_ticket"
+  | "admin_claim_ticket";
 
 export type JobStatus = "pending" | "done" | "error";
 
@@ -226,4 +227,8 @@ export interface AdminCloseTicketPayload {
   ticketId: number;
   closedBy: string;
   reason?: string;
+}
+export interface AdminClaimTicketPayload {
+  ticketId: number;
+  staffId: string;
 }

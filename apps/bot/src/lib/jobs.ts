@@ -4,7 +4,9 @@ import {
   type GuildTextBasedChannel,
   type TextChannel,
 } from "discord.js";
+import { t } from "@ticketbot/shared";
 import type {
+  AdminClaimTicketPayload,
   AdminCloseTicketPayload,
   EditPanelPayload,
   JobRecord,
@@ -16,7 +18,7 @@ import { repos } from "@ticketbot/db";
 import { getDb } from "./db.js";
 import { bustConfigCache } from "./configCache.js";
 import { buildContext } from "./context.js";
-import { buildPanelComponents } from "./embeds.js";
+import { buildPanelComponents, buildTicketControls } from "./embeds.js";
 import { buildEmbedWithAssets } from "./embedAssets.js";
 import { buildTicketOverwrites, staffRoleIdsFor } from "./permissions.js";
 import { closeTicket } from "./ticketManager.js";
@@ -158,6 +160,45 @@ async function handleAdminClose(
   });
 }
 
+async function handleAdminClaim(
+  client: Client,
+  job: JobRecord<AdminClaimTicketPayload>,
+) {
+  const db = getDb();
+  const ticket = repos.tickets.getTicket(db, job.payload.ticketId);
+  if (!ticket || ticket.status === "closed" || ticket.claimedBy) return;
+  const cfg = repos.guildConfig.getGuildConfig(db, ticket.guildId);
+  if (!cfg.claimingEnabled) return;
+  const guild = client.guilds.cache.get(ticket.guildId);
+  if (!guild) return;
+  const ch =
+    guild.channels.cache.get(ticket.channelId) ??
+    (await guild.channels.fetch(ticket.channelId).catch(() => null));
+  if (!ch || ch.type !== ChannelType.GuildText) return;
+
+  repos.tickets.claimTicket(db, ticket.id, job.payload.staffId);
+  await (ch as TextChannel)
+    .send({
+      content: t("ticket.claim.claimedBy", cfg.language, {
+        "claimed_by.mention": `<@${job.payload.staffId}>`,
+      }),
+    })
+    .catch(() => null);
+
+  // Disable the Claim button on the bot's control message (best effort).
+  const recent = await (ch as TextChannel).messages
+    .fetch({ limit: 5 })
+    .catch(() => null);
+  const controls = recent?.find(
+    (m) => m.author.id === client.user!.id && m.components.length > 0,
+  );
+  if (controls) {
+    await controls
+      .edit({ components: [buildTicketControls(ticket.id, { claimed: true })] })
+      .catch(() => null);
+  }
+}
+
 async function processOne(client: Client, job: JobRecord): Promise<void> {
   switch (job.type) {
     case "repost_panel":
@@ -172,6 +213,9 @@ async function processOne(client: Client, job: JobRecord): Promise<void> {
       break;
     case "admin_close_ticket":
       await handleAdminClose(client, job as JobRecord<AdminCloseTicketPayload>);
+      break;
+    case "admin_claim_ticket":
+      await handleAdminClaim(client, job as JobRecord<AdminClaimTicketPayload>);
       break;
     default:
       logger.warn("unknown job type", job.type);

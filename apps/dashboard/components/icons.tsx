@@ -17,6 +17,12 @@ export const Icon = {
       <path d="M5 10v10h14V10" />
     </svg>
   ),
+  tickets: (
+    <svg {...base}>
+      <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 4 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-4z" />
+      <path d="M9 6v12" strokeDasharray="2 2" />
+    </svg>
+  ),
   general: (
     <svg {...base}>
       <line x1="4" y1="7" x2="20" y2="7" />

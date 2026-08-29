@@ -182,6 +182,41 @@ export async function getGuildChannels(
   });
 }
 
+/**
+ * `userId -> display name` for up to 1000 guild members (needs the Server
+ * Members intent, which the bot has). Empty map if the request fails.
+ */
+export async function getGuildMemberNames(
+  guildId: string,
+): Promise<Map<string, string>> {
+  return cached(`members:${guildId}`, async () => {
+    const map = new Map<string, string>();
+    const res = await fetch(`${API}/guilds/${guildId}/members?limit=1000`, {
+      headers: botHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) return map;
+    const rows = (await res.json()) as {
+      user?: { id: string; username: string; global_name?: string | null };
+      nick?: string | null;
+    }[];
+    for (const m of rows) {
+      if (!m.user) continue;
+      map.set(m.user.id, m.nick || m.user.global_name || m.user.username);
+    }
+    return map;
+  });
+}
+
+/** Display name for an id, falling back to the raw id. */
+export function nameOf(
+  names: Map<string, string>,
+  id: string | null | undefined,
+): string {
+  if (!id) return "—";
+  return names.get(id) ?? id;
+}
+
 export function textChannels(channels: DiscordChannel[]) {
   return channels.filter((c) => c.type === 0);
 }

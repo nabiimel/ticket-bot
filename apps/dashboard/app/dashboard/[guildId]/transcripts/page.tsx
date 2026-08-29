@@ -1,17 +1,20 @@
 import { db, repos } from "@/lib/db";
+import { getGuildMemberNames, nameOf } from "@/lib/discord";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { MarkSeen } from "@/components/MarkSeen";
+import { LocalTime } from "@/components/LocalTime";
 
 export const dynamic = "force-dynamic";
 
-export default function TranscriptsPage({
+export default async function TranscriptsPage({
   params,
 }: {
   params: { guildId: string };
 }) {
   const { guildId } = params;
   const tickets = repos.tickets.listClosedTickets(db(), guildId, 100);
+  const names = await getGuildMemberNames(guildId);
 
   return (
     <div className="page">
@@ -36,10 +39,15 @@ export default function TranscriptsPage({
             <div>
               <div className="font-medium">Ticket #{tk.number}</div>
               <div className="text-xs text-faint">
-                opened by {tk.openerId} ·{" "}
-                {tk.closedAt
-                  ? new Date(tk.closedAt * 1000).toLocaleString()
-                  : "—"}
+                opened by {nameOf(names, tk.openerId)} ·{" "}
+                {tk.closedAt ? (
+                  <LocalTime
+                    unix={tk.closedAt}
+                    initial={new Date(tk.closedAt * 1000).toLocaleString()}
+                  />
+                ) : (
+                  "—"
+                )}
                 {tk.closeReason ? ` · ${tk.closeReason}` : ""}
               </div>
             </div>
