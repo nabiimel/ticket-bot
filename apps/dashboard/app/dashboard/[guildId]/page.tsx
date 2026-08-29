@@ -3,11 +3,10 @@ import { db, repos } from "@/lib/db";
 import { guildHealth } from "@/lib/health";
 import { fmtAgo, fmtDuration } from "@/lib/format";
 import { PageHeader } from "@/components/PageHeader";
+import { OpenTicketRow } from "@/components/OpenTicketRow";
+import { Relative } from "@/components/Relative";
 
 export const dynamic = "force-dynamic";
-
-const SLA_UNCLAIMED_S = 30 * 60;
-const SLA_NO_REPLY_S = 60 * 60;
 
 export default async function Overview({
   params,
@@ -38,15 +37,10 @@ export default async function Overview({
     setup.push("Publish a panel");
 
   const claiming = cfg.claimingEnabled;
-  const now = Date.now() / 1000;
-  const oldestOpen = [...openTickets].sort((a, b) => a.createdAt - b.createdAt);
-  const openRows = oldestOpen.slice(0, 8).map((t) => {
-    // "Unclaimed" only means anything when claiming is turned on.
-    const staleUnclaimed =
-      claiming && !t.claimedBy && now - t.createdAt > SLA_UNCLAIMED_S;
-    const noReply = !t.firstStaffMsgAt && now - t.createdAt > SLA_NO_REPLY_S;
-    return { t, flagged: staleUnclaimed || noReply, staleUnclaimed, noReply };
-  });
+  const serverNow = Date.now() / 1000;
+  const openList = [...openTickets]
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .slice(0, 8);
   const unclaimedCount = claiming
     ? openTickets.filter((t) => !t.claimedBy).length
     : 0;
@@ -184,7 +178,7 @@ export default async function Overview({
             {unclaimedCount > 0 && ` · ${unclaimedCount} unclaimed`}
           </span>
         </div>
-        {openRows.length === 0 ? (
+        {openList.length === 0 ? (
           <p className="text-sm text-faint">No open tickets. 🎉</p>
         ) : (
           <div className="overflow-x-auto">
@@ -199,57 +193,15 @@ export default async function Overview({
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {openRows.map(({ t, flagged, staleUnclaimed, noReply }) => (
-                  <tr key={t.id}>
-                    <td className="py-2 pr-3">
-                      #{t.number}
-                      {flagged && (
-                        <span
-                          className="ml-1.5 text-amber-400"
-                          title={
-                            staleUnclaimed
-                              ? "Unclaimed for over 30 min"
-                              : noReply
-                                ? "No staff reply in over an hour"
-                                : ""
-                          }
-                        >
-                          ▲
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2 pr-3 text-dim">
-                      {catLabel(t.categoryId)}
-                    </td>
-                    <td className="py-2 pr-3">
-                      {claiming ? (
-                        t.claimedBy ? (
-                          <span className="badge">claimed</span>
-                        ) : (
-                          <span className="badge badge-amber">unclaimed</span>
-                        )
-                      ) : t.firstStaffMsgAt ? (
-                        <span className="badge">in progress</span>
-                      ) : (
-                        <span className="badge badge-amber">
-                          awaiting reply
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2 pr-3 text-dim">
-                      {fmtDuration(now - t.createdAt)}
-                    </td>
-                    <td className="py-2">
-                      <a
-                        className="text-xs text-accent hover:underline"
-                        href={`https://discord.com/channels/${guildId}/${t.channelId}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Jump →
-                      </a>
-                    </td>
-                  </tr>
+                {openList.map((t) => (
+                  <OpenTicketRow
+                    key={t.id}
+                    t={t}
+                    category={catLabel(t.categoryId)}
+                    guildId={guildId}
+                    claiming={claiming}
+                    serverNow={serverNow}
+                  />
                 ))}
               </tbody>
             </table>
@@ -306,7 +258,7 @@ export default async function Overview({
                     )}
                   </span>
                   <span className="shrink-0 text-xs text-faint">
-                    {fmtAgo(f.at)}
+                    <Relative unix={f.at} ago initial={fmtAgo(f.at)} />
                   </span>
                 </li>
               ))}
