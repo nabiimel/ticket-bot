@@ -137,6 +137,10 @@ export default async function LandingPage({
         Built by <span className="font-medium text-dim">ayban</span> ·{" "}
         <Link href="/privacy" className="hover:text-dim">
           Privacy Policy
+        </Link>{" "}
+        ·{" "}
+        <Link href="/terms" className="hover:text-dim">
+          Terms
         </Link>
       </footer>
     </div>

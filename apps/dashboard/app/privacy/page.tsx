@@ -213,9 +213,12 @@ export default function PrivacyPage() {
           </p>
         </div>
 
-        <div className="mt-10 border-t border-line pt-6 text-sm">
+        <div className="mt-10 flex gap-4 border-t border-line pt-6 text-sm">
           <Link href="/" className="text-accent hover:underline">
             ← Back to home
+          </Link>
+          <Link href="/terms" className="text-dim hover:text-ink">
+            Terms of Service
           </Link>
         </div>
       </main>
