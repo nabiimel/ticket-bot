@@ -60,163 +60,190 @@ export function GeneralForm({
     <form
       action={formAction}
       onInput={() => setDirty(true)}
-      className="space-y-5"
+      className="space-y-8"
     >
       <FormToast state={state} />
 
-      <div className="grid grid-cols-2 gap-4">
+      <section className="space-y-5">
+        <h2 className="text-sm font-semibold text-dim">Channels</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Log channel</label>
+            <Combobox
+              name="logChannelId"
+              options={textChannels}
+              value={logChannelId}
+              onChange={combo(setLog)}
+              invalid={!!state?.fieldErrors?.logChannelId}
+            />
+            <p className="mt-1 text-xs text-faint">
+              Ticket opens, claims and closes are logged here (staff-only).
+            </p>
+            <FieldError state={state} name="logChannelId" />
+          </div>
+          <div>
+            <label className="label">Transcript channel</label>
+            <Combobox
+              name="transcriptChannelId"
+              options={textChannels}
+              value={transcriptChannelId}
+              onChange={combo(setTranscript)}
+              invalid={!!state?.fieldErrors?.transcriptChannelId}
+            />
+            <p className="mt-1 text-xs text-faint">
+              A copy of each closed ticket&apos;s transcript is posted here.
+            </p>
+            <FieldError state={state} name="transcriptChannelId" />
+          </div>
+        </div>
+
         <div>
-          <label className="label">Log channel</label>
+          <label className="label">Default staff role</label>
           <Combobox
-            name="logChannelId"
-            options={textChannels}
-            value={logChannelId}
-            onChange={combo(setLog)}
-            invalid={!!state?.fieldErrors?.logChannelId}
+            name="defaultStaffRoleId"
+            options={roles}
+            value={defaultStaffRoleId}
+            onChange={combo(setStaff)}
+            invalid={!!state?.fieldErrors?.defaultStaffRoleId}
           />
-          <FieldError state={state} name="logChannelId" />
+          <p className="mt-1 text-xs text-faint">
+            Can see every ticket unless a ticket type sets its own staff roles.
+          </p>
+          <FieldError state={state} name="defaultStaffRoleId" />
         </div>
-        <div>
-          <label className="label">Transcript channel</label>
-          <Combobox
-            name="transcriptChannelId"
-            options={textChannels}
-            value={transcriptChannelId}
-            onChange={combo(setTranscript)}
-            invalid={!!state?.fieldErrors?.transcriptChannelId}
-          />
-          <FieldError state={state} name="transcriptChannelId" />
-        </div>
-      </div>
+      </section>
 
-      <div>
-        <label className="label">Default staff role</label>
-        <Combobox
-          name="defaultStaffRoleId"
-          options={roles}
-          value={defaultStaffRoleId}
-          onChange={combo(setStaff)}
-          invalid={!!state?.fieldErrors?.defaultStaffRoleId}
-        />
-        <FieldError state={state} name="defaultStaffRoleId" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="label">Language</label>
-          <select name="language" defaultValue={cfg.language} className="input">
-            {SUPPORTED_LANGUAGES.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>
-          <FieldError state={state} name="language" />
+      <section className="space-y-5">
+        <h2 className="text-sm font-semibold text-dim">Behaviour</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Language</label>
+            <select
+              name="language"
+              defaultValue={cfg.language}
+              className="input"
+            >
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <FieldError state={state} name="language" />
+          </div>
+          <div>
+            <label className="label">Max open tickets per person</label>
+            <input
+              type="number"
+              name="maxOpenPerUser"
+              min={1}
+              max={25}
+              defaultValue={cfg.maxOpenPerUser}
+              className={inputCls(state, "maxOpenPerUser")}
+            />
+            <p className="mt-1 text-xs text-faint">Counted across all types.</p>
+            <FieldError state={state} name="maxOpenPerUser" />
+          </div>
         </div>
+
         <div>
-          <label className="label">Max open tickets / user</label>
+          <label className="label">Ticket channel name</label>
           <input
-            type="number"
-            name="maxOpenPerUser"
-            min={1}
-            max={25}
-            defaultValue={cfg.maxOpenPerUser}
-            className={inputCls(state, "maxOpenPerUser")}
+            name="namingScheme"
+            defaultValue={cfg.namingScheme}
+            className={inputCls(state, "namingScheme")}
+            placeholder="ticket-{number}"
           />
-          <FieldError state={state} name="maxOpenPerUser" />
+          <p className="mt-1 text-xs text-faint">
+            Pattern for new channels. Must include <code>{"{number}"}</code> or{" "}
+            <code>{"{id}"}</code>. Other tokens: <code>{"{category}"}</code>{" "}
+            <code>{"{user}"}</code> <code>{"{form.<key>}"}</code>. Each ticket
+            type can override this.
+          </p>
+          <FieldError state={state} name="namingScheme" />
         </div>
-      </div>
 
-      <div>
-        <label className="label">Channel naming scheme</label>
-        <input
-          name="namingScheme"
-          defaultValue={cfg.namingScheme}
-          className={inputCls(state, "namingScheme")}
-          placeholder="ticket-{number}"
-        />
-        <p className="mt-1 text-xs text-faint">
-          Tokens: <code>{"{number}"}</code> <code>{"{category}"}</code>{" "}
-          <code>{"{user}"}</code> <code>{"{id}"}</code>{" "}
-          <code>{"{form.<key>}"}</code>. Categories can override this.
-        </p>
-        <FieldError state={state} name="namingScheme" />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="label">Close behaviour</label>
-          <select
-            name="closeBehaviour"
-            defaultValue={cfg.closeBehaviour}
-            className="input"
-          >
-            <option value="delete">Delete channel</option>
-            <option value="archive">Archive channel</option>
-          </select>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">When a ticket closes</label>
+            <select
+              name="closeBehaviour"
+              defaultValue={cfg.closeBehaviour}
+              className="input"
+            >
+              <option value="delete">Delete the channel</option>
+              <option value="archive">Move it to an archive category</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Archive category</label>
+            <Combobox
+              name="archiveCategoryId"
+              options={categoryChannels}
+              value={archiveCategoryId}
+              onChange={combo(setArchive)}
+              invalid={!!state?.fieldErrors?.archiveCategoryId}
+            />
+            <p className="mt-1 text-xs text-faint">
+              Only used when close is set to &ldquo;move&rdquo;.
+            </p>
+            <FieldError state={state} name="archiveCategoryId" />
+          </div>
         </div>
-        <div>
-          <label className="label">Archive category</label>
-          <Combobox
-            name="archiveCategoryId"
-            options={categoryChannels}
-            value={archiveCategoryId}
-            onChange={combo(setArchive)}
-            invalid={!!state?.fieldErrors?.archiveCategoryId}
-          />
-          <FieldError state={state} name="archiveCategoryId" />
-        </div>
-      </div>
 
-      <div className="flex flex-wrap gap-6">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="feedbackEnabled"
-            defaultChecked={cfg.feedbackEnabled}
-          />
-          Ask for a rating after close
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="claimingEnabled"
-            defaultChecked={cfg.claimingEnabled}
-          />
-          Allow staff to claim tickets
-        </label>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="label">
-            Inactivity auto-close (hours, 0 = off)
+        <div className="flex flex-wrap gap-6">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="feedbackEnabled"
+              defaultChecked={cfg.feedbackEnabled}
+            />
+            Ask the opener for a rating after closing
           </label>
-          <input
-            type="number"
-            name="inactivityHours"
-            min={0}
-            max={720}
-            defaultValue={cfg.inactivityHours}
-            className={inputCls(state, "inactivityHours")}
-          />
-          <FieldError state={state} name="inactivityHours" />
-        </div>
-        <div>
-          <label className="label">
-            Transcript retention (days, 0 = keep forever)
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="claimingEnabled"
+              defaultChecked={cfg.claimingEnabled}
+            />
+            Let staff claim tickets
           </label>
-          <input
-            type="number"
-            name="transcriptRetentionDays"
-            min={0}
-            max={3650}
-            defaultValue={cfg.transcriptRetentionDays}
-            className={inputCls(state, "transcriptRetentionDays")}
-          />
-          <FieldError state={state} name="transcriptRetentionDays" />
         </div>
-      </div>
+      </section>
+
+      <section className="space-y-5">
+        <h2 className="text-sm font-semibold text-dim">Retention</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Auto-close after inactivity</label>
+            <input
+              type="number"
+              name="inactivityHours"
+              min={0}
+              max={720}
+              defaultValue={cfg.inactivityHours}
+              className={inputCls(state, "inactivityHours")}
+            />
+            <p className="mt-1 text-xs text-faint">
+              Hours with no new messages. 0 = never.
+            </p>
+            <FieldError state={state} name="inactivityHours" />
+          </div>
+          <div>
+            <label className="label">Delete saved transcripts after</label>
+            <input
+              type="number"
+              name="transcriptRetentionDays"
+              min={0}
+              max={3650}
+              defaultValue={cfg.transcriptRetentionDays}
+              className={inputCls(state, "transcriptRetentionDays")}
+            />
+            <p className="mt-1 text-xs text-faint">Days. 0 = keep forever.</p>
+            <FieldError state={state} name="transcriptRetentionDays" />
+          </div>
+        </div>
+      </section>
 
       <SubmitButton>Save settings</SubmitButton>
     </form>

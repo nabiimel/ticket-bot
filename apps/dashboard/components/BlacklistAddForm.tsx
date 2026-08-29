@@ -26,7 +26,7 @@ export function BlacklistAddForm({ guildId }: { guildId: string }) {
       className="card flex flex-wrap items-end gap-3"
     >
       <div className="grow">
-        <label className="label">User ID</label>
+        <label className="label">Discord user ID</label>
         <input
           name="userId"
           className={
@@ -37,10 +37,14 @@ export function BlacklistAddForm({ guildId }: { guildId: string }) {
           placeholder="123456789012345678"
         />
         <FieldError state={state} name="userId" />
+        <p className="mt-1 text-xs text-faint">
+          Developer Mode → right-click the user → Copy User ID.
+        </p>
       </div>
       <div className="grow">
         <label className="label">Reason (optional)</label>
         <input name="reason" className="input" />
+        <p className="mt-1 text-xs text-faint">Only staff see this.</p>
         <FieldError state={state} name="reason" />
       </div>
       <SubmitButton>Block</SubmitButton>

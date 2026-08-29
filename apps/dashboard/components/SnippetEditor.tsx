@@ -109,19 +109,19 @@ export function SnippetEditor({
     <div className="space-y-5">
       <div className="card space-y-4">
         <div>
-          <label className="label">Name</label>
+          <label className="label">Shortcut</label>
           <input
             className="input max-w-xs"
             value={name}
             onChange={(e) => setName(e.target.value.toLowerCase())}
           />
           <p className="mt-1 text-xs text-faint">
-            Used as <code>/snippet name:{name || "…"}</code>
+            What staff type: <code>/snippet name:{name || "…"}</code>
           </p>
         </div>
 
         <div>
-          <label className="label">Message text</label>
+          <label className="label">Reply text</label>
           <textarea
             className="input min-h-[160px] font-mono text-sm"
             value={content}

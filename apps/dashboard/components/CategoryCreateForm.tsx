@@ -16,7 +16,7 @@ export function CategoryCreateForm({ guildId }: { guildId: string }) {
   return (
     <form action={formAction} className="card flex flex-wrap items-end gap-3">
       <div>
-        <label className="label">Key</label>
+        <label className="label">Reference ID</label>
         <input
           name="key"
           className={
@@ -29,7 +29,7 @@ export function CategoryCreateForm({ guildId }: { guildId: string }) {
         <FieldError state={state} name="key" />
       </div>
       <div className="grow">
-        <label className="label">Label</label>
+        <label className="label">Display name</label>
         <input
           name="label"
           className={

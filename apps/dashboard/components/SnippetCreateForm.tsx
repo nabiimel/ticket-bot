@@ -16,7 +16,7 @@ export function SnippetCreateForm({ guildId }: { guildId: string }) {
   return (
     <form action={formAction} className="card flex flex-wrap items-end gap-3">
       <div className="grow">
-        <label className="label">Name</label>
+        <label className="label">Shortcut</label>
         <input
           name="name"
           className={
@@ -28,7 +28,7 @@ export function SnippetCreateForm({ guildId }: { guildId: string }) {
         />
         <FieldError state={state} name="name" />
         <p className="mt-1 text-xs text-faint">
-          Staff post it with <code>/snippet name:&lt;name&gt;</code>.
+          What staff type after <code>/snippet</code>.
         </p>
       </div>
       <SubmitButton>Create</SubmitButton>

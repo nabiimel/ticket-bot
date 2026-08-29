@@ -50,7 +50,7 @@ export function EmbedEditor({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="label">Color</label>
+          <label className="label">Accent colour</label>
           <div className="flex items-center gap-2">
             <input
               type="color"
@@ -65,6 +65,9 @@ export function EmbedEditor({
               onChange={(e) => set("color", e.target.value)}
             />
           </div>
+          <p className="mt-1 text-xs text-faint">
+            The coloured bar down the left side.
+          </p>
         </div>
         <label className="flex items-end gap-2 pb-2 text-sm">
           <input
@@ -72,19 +75,19 @@ export function EmbedEditor({
             checked={!!value.timestamp}
             onChange={(e) => set("timestamp", e.target.checked)}
           />
-          Show timestamp
+          Show the current time
         </label>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <ImageField
-          label="Banner image"
+          label="Large image (banner)"
           guildId={guildId}
           value={value.image}
           onChange={(next) => onChange({ ...value, image: next })}
         />
         <ImageField
-          label="Thumbnail"
+          label="Small image (top-right)"
           guildId={guildId}
           value={value.thumbnail}
           onChange={(next) => onChange({ ...value, thumbnail: next })}
@@ -93,7 +96,7 @@ export function EmbedEditor({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="label">Footer text</label>
+          <label className="label">Footer</label>
           <input
             className="input"
             value={value.footer?.text ?? ""}
@@ -106,9 +109,12 @@ export function EmbedEditor({
               })
             }
           />
+          <p className="mt-1 text-xs text-faint">
+            Small text along the bottom.
+          </p>
         </div>
         <div>
-          <label className="label">Author name</label>
+          <label className="label">Small heading</label>
           <input
             className="input"
             value={value.author?.name ?? ""}
@@ -121,6 +127,7 @@ export function EmbedEditor({
               })
             }
           />
+          <p className="mt-1 text-xs text-faint">A line above the title.</p>
         </div>
       </div>
 

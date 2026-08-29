@@ -138,15 +138,18 @@ export function CategoryEditor({
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="label">Label</label>
+          <label className="label">Display name</label>
           <input
             className="input"
             value={c.label}
             onChange={(e) => patch({ label: e.target.value })}
           />
+          <p className="mt-1 text-xs text-faint">
+            Shown on the panel button / dropdown.
+          </p>
         </div>
         <div>
-          <label className="label">Key</label>
+          <label className="label">Reference ID</label>
           <input
             className="input"
             value={c.key}
@@ -156,9 +159,13 @@ export function CategoryEditor({
               })
             }
           />
+          <p className="mt-1 text-xs text-faint">
+            Lowercase, no spaces. Used in <code>{"{form.…}"}</code> tokens,
+            channel names and commands. Hard to change later.
+          </p>
         </div>
         <div>
-          <label className="label">Emoji</label>
+          <label className="label">Button emoji</label>
           <input
             className={emojiError ? "input border-red-500" : "input"}
             value={c.emoji ?? ""}
@@ -188,9 +195,7 @@ export function CategoryEditor({
           )}
         </div>
         <div>
-          <label className="label">
-            Per-user open limit (blank = server default)
-          </label>
+          <label className="label">Max open of this type per person</label>
           <input
             type="number"
             min={1}
@@ -203,11 +208,12 @@ export function CategoryEditor({
               })
             }
           />
+          <p className="mt-1 text-xs text-faint">
+            Blank = use the server limit.
+          </p>
         </div>
         <div>
-          <label className="label">
-            Channel naming (blank = server default)
-          </label>
+          <label className="label">Channel name pattern</label>
           <input
             className="input"
             placeholder={`${c.key}-{number}`}
@@ -215,8 +221,9 @@ export function CategoryEditor({
             onChange={(e) => patch({ namingScheme: e.target.value || null })}
           />
           <p className="mt-1 text-xs text-faint">
-            Tokens: <code>{"{number}"}</code> <code>{"{category}"}</code>{" "}
-            <code>{"{user}"}</code> <code>{"{id}"}</code>{" "}
+            Blank = use the server pattern. Tokens: <code>{"{number}"}</code>{" "}
+            <code>{"{category}"}</code> <code>{"{user}"}</code>{" "}
+            <code>{"{id}"}</code>{" "}
             <code>
               {"{form."}
               {c.form[0]?.key || "key"}
@@ -225,23 +232,23 @@ export function CategoryEditor({
           </p>
         </div>
         <div className="sm:col-span-2">
-          <label className="label">Menu description</label>
+          <label className="label">Dropdown description</label>
           <input
             className="input"
             value={c.description ?? ""}
             onChange={(e) => patch({ description: e.target.value || null })}
           />
           <p className="mt-1 text-xs text-faint">
-            Supports <code>{"{guild.name}"}</code>{" "}
-            <code>{"{category.name}"}</code> (shown to everyone, so no per-user
-            tokens here).
+            Only shown on dropdown-style panels. Supports{" "}
+            <code>{"{guild.name}"}</code> <code>{"{category.name}"}</code> (seen
+            by everyone, so no per-user tokens).
           </p>
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="label">Staff roles</label>
+          <label className="label">Who handles these tickets</label>
           <MultiSelect
             options={roles}
             selected={c.staffRoleIds}
@@ -249,7 +256,7 @@ export function CategoryEditor({
           />
         </div>
         <div>
-          <label className="label">Ping roles on open</label>
+          <label className="label">Also notify these roles on open</label>
           <MultiSelect
             options={roles}
             selected={c.pingRoleIds}
@@ -259,29 +266,34 @@ export function CategoryEditor({
       </div>
 
       <div>
-        <label className="label">Parent Discord category</label>
+        <label className="label">Put ticket channels under</label>
         <Combobox
           options={parents}
           value={c.discordParentId}
           onChange={(id) => patch({ discordParentId: id })}
         />
+        <p className="mt-1 text-xs text-faint">
+          A Discord category — the grey folder in the channel sidebar.
+        </p>
       </div>
 
       {/* Form builder */}
       <div className="card space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Open form ({c.form.length}/5)</h2>
+          <h2 className="font-semibold">
+            Questions before opening ({c.form.length}/5)
+          </h2>
           <button
             className="btn-secondary"
             onClick={addField}
             disabled={c.form.length >= 5}
           >
-            Add field
+            Add question
           </button>
         </div>
         {c.form.length === 0 && (
           <p className="text-sm text-faint">
-            No form — tickets open immediately.
+            No questions — tickets open immediately.
           </p>
         )}
         {c.form.map((f, i) => (
@@ -291,13 +303,13 @@ export function CategoryEditor({
           >
             <input
               className="input"
-              placeholder="Label"
+              placeholder="Question"
               value={f.label}
               onChange={(e) => setField(i, { label: e.target.value })}
             />
             <input
               className="input"
-              placeholder="key"
+              placeholder="answer id"
               value={f.key}
               onChange={(e) =>
                 setField(i, {
@@ -312,8 +324,8 @@ export function CategoryEditor({
                 setField(i, { style: e.target.value as FormField["style"] })
               }
             >
-              <option value="short">short</option>
-              <option value="paragraph">paragraph</option>
+              <option value="short">Short answer</option>
+              <option value="paragraph">Paragraph</option>
             </select>
             <label className="flex items-center gap-1 text-xs">
               <input
@@ -321,7 +333,7 @@ export function CategoryEditor({
                 checked={f.required}
                 onChange={(e) => setField(i, { required: e.target.checked })}
               />
-              req
+              Required
             </label>
             <button
               className="text-xs text-discord-red hover:underline"
@@ -338,7 +350,7 @@ export function CategoryEditor({
             Reference an answer in the welcome message as{" "}
             <code className="text-discord-blurple">
               {"{form."}
-              {c.form[0]?.key || "key"}
+              {c.form[0]?.key || "answer_id"}
               {"}"}
             </code>
             , or drop them all in with{" "}
@@ -355,7 +367,7 @@ export function CategoryEditor({
             checked={useWelcome}
             onChange={(e) => setUseWelcome(e.target.checked)}
           />
-          Override welcome message for this category
+          Use a custom welcome message for this ticket type
         </label>
         {useWelcome && (
           <div className="grid gap-6 lg:grid-cols-2">

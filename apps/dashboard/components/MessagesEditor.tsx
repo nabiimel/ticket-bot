@@ -24,13 +24,13 @@ type Props = {
 const TABS = [
   {
     key: "welcome",
-    label: "Welcome (in ticket)",
+    label: "Welcome message",
     fallback: DEFAULT_WELCOME_EMBED,
   },
-  { key: "close", label: "Close DM", fallback: DEFAULT_CLOSE_EMBED },
+  { key: "close", label: "Close message (DM)", fallback: DEFAULT_CLOSE_EMBED },
   {
     key: "feedback",
-    label: "Feedback prompt",
+    label: "Rating prompt",
     fallback: DEFAULT_FEEDBACK_EMBED,
   },
 ] as const;

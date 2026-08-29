@@ -187,18 +187,18 @@ export function PanelEditor({
       <div className="card space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="label">Style</label>
+            <label className="label">Layout</label>
             <select
               className="input"
               value={style}
               onChange={(e) => setStyle(e.target.value as PanelStyle)}
             >
               <option value="buttons">Buttons</option>
-              <option value="dropdown">Dropdown</option>
+              <option value="dropdown">Dropdown menu</option>
             </select>
           </div>
           <div>
-            <label className="label">Target channel</label>
+            <label className="label">Post this panel in</label>
             <Combobox
               options={textChannels}
               value={channelId}
@@ -211,10 +211,11 @@ export function PanelEditor({
 
         {style === "dropdown" && (
           <div>
-            <label className="label">Dropdown placeholder</label>
+            <label className="label">Dropdown prompt</label>
             <input
               className="input"
               value={placeholder}
+              placeholder="Choose a ticket type…"
               onChange={(e) => setPlaceholder(e.target.value)}
             />
             <p className="mt-1 text-xs text-faint">
@@ -224,12 +225,10 @@ export function PanelEditor({
         )}
 
         <div>
-          <label className="label">
-            Categories on this panel (drag order = display order)
-          </label>
+          <label className="label">Ticket types on this panel</label>
           <div className="space-y-2">
             {selected.length === 0 && (
-              <p className="text-sm text-faint">None selected yet.</p>
+              <p className="text-sm text-faint">None added yet.</p>
             )}
             {selected.map((c, idx) => {
               const b = buttons[c.id] ?? {
@@ -273,7 +272,7 @@ export function PanelEditor({
                     <div className="mt-2 grid grid-cols-[1fr_5rem_8rem] gap-2">
                       <input
                         className="input"
-                        placeholder="Button label"
+                        placeholder="Button text"
                         value={b.label}
                         onChange={(e) =>
                           setButton(c.id, { label: e.target.value })
@@ -298,10 +297,10 @@ export function PanelEditor({
                           })
                         }
                       >
-                        <option>Primary</option>
-                        <option>Secondary</option>
-                        <option>Success</option>
-                        <option>Danger</option>
+                        <option value="Primary">Blurple</option>
+                        <option value="Secondary">Grey</option>
+                        <option value="Success">Green</option>
+                        <option value="Danger">Red</option>
                       </select>
                     </div>
                   )}
@@ -312,7 +311,7 @@ export function PanelEditor({
 
           {unselected.length > 0 && (
             <div className="mt-3">
-              <div className="mb-1 text-xs text-faint">Add a category</div>
+              <div className="mb-1 text-xs text-faint">Add a ticket type</div>
               <div className="flex flex-wrap gap-2">
                 {unselected.map((c) => (
                   <button
@@ -362,7 +361,7 @@ export function PanelEditor({
             run(() => sendTest(guildId, channelId ?? "", embed), "Test sent")
           }
         >
-          Send test
+          Send a test copy
         </button>
         <button
           className="btn-danger ml-auto"
