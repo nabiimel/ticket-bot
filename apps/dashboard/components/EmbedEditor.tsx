@@ -1,11 +1,13 @@
 "use client";
 
+import { useRef } from "react";
 import {
   PLACEHOLDERS,
   type EmbedConfig,
   type PlaceholderDoc,
 } from "@ticketbot/shared";
 import { ImageField } from "./ImageField";
+import { insertAtCursor } from "@/lib/insert-at-cursor";
 
 type Props = {
   value: EmbedConfig;
@@ -16,6 +18,23 @@ type Props = {
   extraPlaceholders?: PlaceholderDoc[];
 };
 
+function Count({ n, max }: { n: number; max: number }) {
+  const pct = n / max;
+  return (
+    <p
+      className={`mt-1 text-right text-[11px] ${
+        pct >= 1
+          ? "text-discord-red"
+          : pct > 0.9
+            ? "text-amber-400"
+            : "text-faint"
+      }`}
+    >
+      {n}/{max}
+    </p>
+  );
+}
+
 export function EmbedEditor({
   value,
   onChange,
@@ -23,6 +42,7 @@ export function EmbedEditor({
   showPlaceholders = true,
   extraPlaceholders = [],
 }: Props) {
+  const descRef = useRef<HTMLTextAreaElement>(null);
   const set = <K extends keyof EmbedConfig>(k: K, v: EmbedConfig[K]) =>
     onChange({ ...value, [k]: v || undefined });
 
@@ -36,16 +56,19 @@ export function EmbedEditor({
           onChange={(e) => set("title", e.target.value)}
           maxLength={256}
         />
+        <Count n={(value.title ?? "").length} max={256} />
       </div>
 
       <div>
         <label className="label">Description</label>
         <textarea
+          ref={descRef}
           className="input min-h-[120px]"
           value={value.description ?? ""}
           onChange={(e) => set("description", e.target.value)}
           maxLength={4096}
         />
+        <Count n={(value.description ?? "").length} max={4096} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -100,6 +123,7 @@ export function EmbedEditor({
           <input
             className="input"
             value={value.footer?.text ?? ""}
+            maxLength={2048}
             onChange={(e) =>
               onChange({
                 ...value,
@@ -118,6 +142,7 @@ export function EmbedEditor({
           <input
             className="input"
             value={value.author?.name ?? ""}
+            maxLength={256}
             onChange={(e) =>
               onChange({
                 ...value,
@@ -134,12 +159,28 @@ export function EmbedEditor({
       {showPlaceholders && (
         <details className="rounded-md border border-line bg-surface p-3 text-sm">
           <summary className="cursor-pointer text-dim">
-            Available placeholders
+            Insert a placeholder
           </summary>
+          <p className="mt-1 text-xs text-faint">
+            Click one to drop it into the description at your cursor.
+          </p>
           <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             {[...extraPlaceholders, ...PLACEHOLDERS].map((p) => (
               <li key={p.token}>
-                <code className="text-discord-blurple">{p.token}</code>{" "}
+                <button
+                  type="button"
+                  className="text-discord-blurple hover:underline"
+                  onClick={() =>
+                    insertAtCursor(
+                      descRef.current,
+                      value.description ?? "",
+                      p.token,
+                      (v) => set("description", v),
+                    )
+                  }
+                >
+                  <code>{p.token}</code>
+                </button>{" "}
                 <span className="text-faint">{p.description}</span>
               </li>
             ))}

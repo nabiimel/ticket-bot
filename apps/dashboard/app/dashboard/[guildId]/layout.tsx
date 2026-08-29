@@ -3,8 +3,9 @@ import { cookies } from "next/headers";
 import { auth, signOut } from "@/auth";
 import { requireGuildAccess } from "@/lib/guild-access";
 import { db, repos } from "@/lib/db";
-import { NavLink } from "@/components/NavLink";
 import { Icon } from "@/components/icons";
+import { SideNav, type NavItem } from "@/components/SideNav";
+import { MobileNav } from "@/components/MobileNav";
 import { ToastProvider } from "@/components/Toast";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -77,11 +78,26 @@ export default async function GuildLayout({
       : `https://cdn.discordapp.com/icons/${params.guildId}/${guild.icon}.png?size=64`;
   const initials = (guild?.name ?? "S").slice(0, 2).toUpperCase();
 
+  const navItems: NavItem[] = NAV.map((item) => ({
+    href: `/dashboard/${guildId}${item.href}`,
+    label: item.label,
+    icon: item.icon,
+    exact: item.href === "",
+    dot: item.href === "" && overviewAlert,
+    badge:
+      item.href === "/transcripts"
+        ? newTranscripts
+        : item.href === "/tickets"
+          ? flaggedCount
+          : undefined,
+  }));
+
   return (
     <div className="relative z-10 min-h-screen">
       <header className="sticky top-0 z-20 border-b border-line bg-[var(--bg-glass)] backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <MobileNav items={navItems} />
             <Link href="/dashboard" className="btn-ghost !px-2 !py-1 text-xs">
               ← Servers
             </Link>
@@ -138,28 +154,11 @@ export default async function GuildLayout({
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-6xl gap-8 px-6 py-8">
-        <aside className="w-56 shrink-0">
-          <nav className="sticky top-20 space-y-0.5">
-            {NAV.map((item) => (
-              <NavLink
-                key={item.href}
-                href={`/dashboard/${guildId}${item.href}`}
-                exact={item.href === ""}
-                icon={item.icon}
-                dot={item.href === "" && overviewAlert}
-                badge={
-                  item.href === "/transcripts"
-                    ? newTranscripts
-                    : item.href === "/tickets"
-                      ? flaggedCount
-                      : undefined
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+      <div className="mx-auto flex max-w-6xl gap-8 px-4 py-8 sm:px-6">
+        <aside className="hidden w-56 shrink-0 lg:block">
+          <div className="sticky top-20">
+            <SideNav items={navItems} />
+          </div>
         </aside>
         <main className="min-w-0 flex-1 pb-16">
           {suspended && (

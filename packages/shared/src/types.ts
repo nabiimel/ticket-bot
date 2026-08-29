@@ -128,6 +128,9 @@ export interface CategoryConfig {
   perUserLimit: number | null;
   /** null => fall back to the guild's naming scheme. `{category}` = this key. */
   namingScheme: string | null;
+  /** Paused: panel button is disabled, new tickets are refused. */
+  disabled: boolean;
+  disabledReason: string | null;
   sortOrder: number;
 }
 

@@ -21,6 +21,7 @@ describe("migrations", () => {
       "004_category_naming",
       "005_suspend",
       "006_snippets",
+      "007_category_disabled",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
@@ -169,6 +170,26 @@ describe("categories repo", () => {
     expect(cat.namingScheme).toBe("reroll-{number}");
     repos.categories.updateCategory(db, cat.id, { namingScheme: null });
     expect(repos.categories.getCategory(db, cat.id)?.namingScheme).toBeNull();
+  });
+
+  it("round-trips the disabled / paused flag", () => {
+    const db = freshDb();
+    const cat = repos.categories.createCategory(db, "g1", {
+      key: "s",
+      label: "Support",
+      staffRoleIds: [],
+      pingRoleIds: [],
+      form: [],
+    });
+    expect(cat.disabled).toBe(false);
+    expect(cat.disabledReason).toBeNull();
+    repos.categories.updateCategory(db, cat.id, {
+      disabled: true,
+      disabledReason: "Back Monday",
+    });
+    const after = repos.categories.getCategory(db, cat.id)!;
+    expect(after.disabled).toBe(true);
+    expect(after.disabledReason).toBe("Back Monday");
   });
 });
 

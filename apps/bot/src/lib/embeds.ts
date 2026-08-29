@@ -115,7 +115,8 @@ export function buildPanelComponents(
       const btn = new ButtonBuilder()
         .setCustomId(`open:${c.id}`)
         .setLabel(label.slice(0, 80))
-        .setStyle(BUTTON_STYLE[bc.style] ?? ButtonStyle.Primary);
+        .setStyle(BUTTON_STYLE[bc.style] ?? ButtonStyle.Primary)
+        .setDisabled(c.disabled);
       if (bc.emoji || c.emoji) btn.setEmoji((bc.emoji || c.emoji)!);
       row.addComponents(btn);
     }

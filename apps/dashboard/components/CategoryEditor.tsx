@@ -109,6 +109,8 @@ export function CategoryEditor({
         discordParentId: c.discordParentId,
         perUserLimit: c.perUserLimit,
         namingScheme: c.namingScheme,
+        disabled: c.disabled,
+        disabledReason: c.disabled ? c.disabledReason : null,
         welcomeEmbed: useWelcome
           ? (c.welcomeEmbed ?? DEFAULT_WELCOME_EMBED)
           : null,
@@ -136,6 +138,33 @@ export function CategoryEditor({
 
   return (
     <div className="space-y-6">
+      <div
+        className={`card ${
+          c.disabled ? "border-amber-500/40 bg-amber-500/[0.06]" : ""
+        }`}
+      >
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={c.disabled}
+            onChange={(e) => patch({ disabled: e.target.checked })}
+          />
+          Pause this ticket type
+        </label>
+        <p className="mt-1 text-xs text-faint">
+          The panel button is greyed out and new tickets are refused. Nothing is
+          deleted; open tickets are unaffected.
+        </p>
+        {c.disabled && (
+          <input
+            className="input mt-3"
+            placeholder="Reason shown to members (optional) — e.g. “Back Monday”"
+            value={c.disabledReason ?? ""}
+            onChange={(e) => patch({ disabledReason: e.target.value || null })}
+          />
+        )}
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label">Display name</label>

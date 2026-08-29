@@ -126,7 +126,7 @@ export async function saveGeneral(
   const before = repos.guildConfig.getGuildConfig(db(), guildId);
   const defaultStaffRoleId = str("defaultStaffRoleId");
 
-  repos.guildConfig.updateGuildConfig(db(), guildId, {
+  const next: Parameters<typeof repos.guildConfig.updateGuildConfig>[2] = {
     logChannelId: str("logChannelId"),
     transcriptChannelId: str("transcriptChannelId"),
     defaultStaffRoleId,
@@ -139,14 +139,44 @@ export async function saveGeneral(
     claimingEnabled: form.get("claimingEnabled") === "on",
     inactivityHours,
     transcriptRetentionDays,
-  });
+  };
+  const GEN_LABELS: Record<string, string> = {
+    logChannelId: "log channel",
+    transcriptChannelId: "transcript channel",
+    defaultStaffRoleId: "default staff role",
+    language: "language",
+    namingScheme: "channel name",
+    maxOpenPerUser: "max open per person",
+    closeBehaviour: "close behaviour",
+    archiveCategoryId: "archive category",
+    feedbackEnabled: "rating prompt",
+    claimingEnabled: "claiming",
+    inactivityHours: "auto-close",
+    transcriptRetentionDays: "transcript retention",
+  };
+  const genChanged = Object.keys(next)
+    .filter(
+      (k) =>
+        JSON.stringify((next as Record<string, unknown>)[k]) !==
+        JSON.stringify((before as unknown as Record<string, unknown>)[k]),
+    )
+    .map((k) => GEN_LABELS[k] ?? k);
+
+  repos.guildConfig.updateGuildConfig(db(), guildId, next);
 
   // The default staff role applies to every ticket — re-sync open channels.
   if (before.defaultStaffRoleId !== defaultStaffRoleId) {
     await enqueueJob(guildId, "sync_ticket_perms", {});
   }
 
-  audit(guildId, userId, "general.update", "Updated general settings");
+  audit(
+    guildId,
+    userId,
+    "general.update",
+    `Updated general settings${
+      genChanged.length ? `: ${genChanged.join(", ")}` : ""
+    }`,
+  );
   rev(guildId);
   return ok("Settings saved");
 }
@@ -167,6 +197,8 @@ export interface CategoryPayload {
   namingScheme?: string | null;
   welcomeEmbed?: EmbedConfig | null;
   form: FormField[];
+  disabled?: boolean;
+  disabledReason?: string | null;
   sortOrder?: number;
 }
 
@@ -246,13 +278,49 @@ export async function saveCategory(
       error: "Channel naming must include {number} or {id} (max 90 chars)",
     };
   }
+  const CAT_FIELD_LABELS: Record<string, string> = {
+    label: "name",
+    key: "reference id",
+    emoji: "emoji",
+    description: "menu description",
+    staffRoleIds: "staff roles",
+    pingRoleIds: "ping roles",
+    discordParentId: "parent category",
+    perUserLimit: "per-user limit",
+    namingScheme: "channel name",
+    welcomeEmbed: "welcome message",
+    form: "form",
+    disabled: "paused",
+    disabledReason: "pause reason",
+  };
+  const changed = Object.keys(payload)
+    .filter(
+      (k) =>
+        k in CAT_FIELD_LABELS &&
+        JSON.stringify((payload as Record<string, unknown>)[k]) !==
+          JSON.stringify((existing as unknown as Record<string, unknown>)[k]),
+    )
+    .map((k) => CAT_FIELD_LABELS[k]);
+
   repos.categories.updateCategory(db(), categoryId, payload);
   await enqueueJob(guildId, "sync_ticket_perms", { categoryId });
+
+  // Button label / emoji / colour / paused state all affect published panels.
+  for (const p of repos.panels.listPanels(db(), guildId)) {
+    if (p.status === "published" && p.categoryIds.includes(categoryId)) {
+      await enqueueJob(guildId, p.messageId ? "edit_panel" : "repost_panel", {
+        panelId: p.id,
+      });
+    }
+  }
+
   audit(
     guildId,
     userId,
     "category.update",
-    `Updated category “${existing.label}” (${existing.key})`,
+    `Updated category “${existing.label}” (${existing.key})${
+      changed.length ? `: ${changed.join(", ")}` : ""
+    }`,
   );
   void cleanupOrphanUploads(guildId);
   rev(guildId);

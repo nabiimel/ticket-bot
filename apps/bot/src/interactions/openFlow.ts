@@ -113,6 +113,12 @@ function openGuard(
   if (guildConfig.suspended) {
     return t("ticket.open.suspended", lang);
   }
+  if (category.disabled) {
+    return t("ticket.open.categoryDisabled", lang, {
+      category: category.label,
+      reason: category.disabledReason || "Please check back later.",
+    });
+  }
   if (repos.blacklist.isBlacklisted(db, guildId, userId)) {
     return t("ticket.open.blacklisted", lang);
   }

@@ -28,6 +28,8 @@ function map(r: any): CategoryConfig {
     form: jsonArray<FormField>(r.form_json, []),
     perUserLimit: r.per_user_limit,
     namingScheme: r.naming_scheme ?? null,
+    disabled: !!r.disabled,
+    disabledReason: r.disabled_reason ?? null,
     sortOrder: r.sort_order,
   };
 }
@@ -69,6 +71,8 @@ export interface CategoryInput {
   form?: FormField[];
   perUserLimit?: number | null;
   namingScheme?: string | null;
+  disabled?: boolean;
+  disabledReason?: string | null;
   sortOrder?: number;
 }
 
@@ -82,9 +86,10 @@ export function createCategory(
       `INSERT INTO categories
         (guild_id, key, label, emoji, description, staff_role_ids_json,
          ping_role_ids_json, discord_parent_id, welcome_embed_json, form_json,
-         per_user_limit, naming_scheme, sort_order)
+         per_user_limit, naming_scheme, disabled, disabled_reason, sort_order)
        VALUES (@guild_id, @key, @label, @emoji, @description, @staff, @ping,
-               @parent, @welcome, @form, @limit, @naming, @sort)`,
+               @parent, @welcome, @form, @limit, @naming, @disabled,
+               @disabledReason, @sort)`,
     )
     .run({
       guild_id: guildId,
@@ -99,6 +104,8 @@ export function createCategory(
       form: JSON.stringify(input.form ?? []),
       limit: input.perUserLimit ?? null,
       naming: input.namingScheme ?? null,
+      disabled: input.disabled ? 1 : 0,
+      disabledReason: input.disabledReason ?? null,
       sort: input.sortOrder ?? 0,
     });
   return getCategory(db, Number(info.lastInsertRowid))!;
@@ -121,6 +128,8 @@ export function updateCategory(
     form: "form_json",
     perUserLimit: "per_user_limit",
     namingScheme: "naming_scheme",
+    disabled: "disabled",
+    disabledReason: "disabled_reason",
     sortOrder: "sort_order",
   };
   const sets: string[] = [];
@@ -133,6 +142,8 @@ export function updateCategory(
       value = JSON.stringify(raw ?? []);
     } else if (key === "welcomeEmbed") {
       value = raw == null ? null : JSON.stringify(raw);
+    } else if (key === "disabled") {
+      value = raw ? 1 : 0;
     }
     sets.push(`${col} = ?`);
     values.push(value ?? null);

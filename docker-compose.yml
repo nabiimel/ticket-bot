@@ -10,9 +10,12 @@ x-logging: &logging
       max-size: "10m"
       max-file: "5"
 
+# Local dev builds from source; the droplet runs `docker compose pull` to fetch
+# the CI-built image (ghcr.io/nabiimel/ticket-bot) instead of building on-box.
 services:
   bot:
     build: .
+    image: ghcr.io/nabiimel/ticket-bot:${IMAGE_TAG:-latest}
     restart: unless-stopped
     command: npm run start:bot
     <<: *logging
@@ -44,6 +47,7 @@ services:
 
   dashboard:
     build: .
+    image: ghcr.io/nabiimel/ticket-bot:${IMAGE_TAG:-latest}
     restart: unless-stopped
     command: npm run start:dash
     <<: *logging
@@ -112,6 +116,7 @@ services:
   # One-shot migration runner: `docker compose run --rm migrate`
   migrate:
     build: .
+    image: ghcr.io/nabiimel/ticket-bot:${IMAGE_TAG:-latest}
     command: npm run migrate
     environment:
       DATABASE_PATH: /data/ticketbot.db

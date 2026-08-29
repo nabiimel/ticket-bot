@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PLACEHOLDERS, type Snippet } from "@ticketbot/shared";
 import { saveSnippet, deleteSnippet } from "@/app/dashboard/[guildId]/actions";
 import { useUnsavedChanges } from "@/lib/dirty-store";
+import { insertAtCursor } from "@/lib/insert-at-cursor";
 import { useToast } from "./Toast";
 import { useConfirm } from "./ConfirmDialog";
 import { StickySaveBar } from "./StickySaveBar";
@@ -23,6 +24,7 @@ export function SnippetEditor({
   const confirm = useConfirm();
   const [pending, start] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
   const [busy, setBusy] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -123,23 +125,48 @@ export function SnippetEditor({
         <div>
           <label className="label">Reply text</label>
           <textarea
+            ref={contentRef}
             className="input min-h-[160px] font-mono text-sm"
             value={content}
             maxLength={2000}
             placeholder="Hi {user.mention}, thanks for reaching out…"
             onChange={(e) => setContent(e.target.value)}
           />
-          <div className="mt-1 text-right text-xs text-faint">
+          <div
+            className={`mt-1 text-right text-xs ${
+              content.length >= 2000
+                ? "text-discord-red"
+                : content.length > 1800
+                  ? "text-amber-400"
+                  : "text-faint"
+            }`}
+          >
             {content.length}/2000
           </div>
           <details className="mt-2 rounded-md border border-line bg-surface p-3 text-sm">
             <summary className="cursor-pointer text-dim">
-              Available placeholders
+              Insert a placeholder
             </summary>
+            <p className="mt-1 text-xs text-faint">
+              Click one to drop it into the reply text at your cursor.
+            </p>
             <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               {PLACEHOLDERS.map((p) => (
                 <li key={p.token}>
-                  <code className="text-discord-blurple">{p.token}</code>{" "}
+                  <button
+                    type="button"
+                    className="text-discord-blurple hover:underline"
+                    onClick={() =>
+                      insertAtCursor(
+                        contentRef.current,
+                        content,
+                        p.token,
+                        setContent,
+                      )
+                    }
+                  >
+                    <code>{p.token}</code>
+                  </button>{" "}
                   <span className="text-faint">{p.description}</span>
                 </li>
               ))}

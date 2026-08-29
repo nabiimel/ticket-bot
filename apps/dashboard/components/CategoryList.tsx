@@ -95,6 +95,9 @@ export function CategoryList({
             <div className="font-medium">
               {c.emoji ? `${c.emoji} ` : ""}
               {c.label} <span className="text-xs text-faint">({c.key})</span>
+              {c.disabled && (
+                <span className="badge badge-amber ml-2">paused</span>
+              )}
             </div>
             <div className="text-xs text-faint">
               {c.staffRoleIds.length} staff role(s) · {c.form.length} form

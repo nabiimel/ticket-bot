@@ -162,9 +162,31 @@ CI (`.github/workflows/ci.yml`) runs all of the above plus the dashboard build.
 ```bash
 # .env at repo root with DISCORD_TOKEN, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET,
 # DISCORD_BOT_TOKEN, AUTH_SECRET, INTERNAL_WAKE_SECRET, NEXTAUTH_URL
-# optional: LOG_WEBHOOK_URL, BACKUP_S3_* (see .env.example)
-docker compose up -d   # bot + dashboard + autoheal + nightly backup
+# optional: LOG_WEBHOOK_URL, BACKUP_S3_*, IMAGE_TAG (see .env.example)
+docker compose up -d --build   # first run: build + start everything
 ```
+
+### Updating (image built by CI)
+
+Every push to `main` runs the checks and, if they pass, builds the Docker image
+on GitHub's runners and pushes it to **`ghcr.io/nabiimel/ticket-bot`**. The
+droplet then only pulls — no on-box build:
+
+```bash
+cd ~/ticket-bot && git pull && docker compose pull && docker compose up -d
+```
+
+`git pull` is still needed when `docker-compose.yml` / `.env.example` change; the
+app code now travels in the image. Pin a specific build with
+`IMAGE_TAG=<git-sha>` in `.env` (defaults to `latest`).
+
+- **Package visibility:** make the GHCR package public (repo → Packages → the
+  package → *Package settings* → *Change visibility*) so the droplet pulls
+  without auth. To keep it private, run `docker login ghcr.io -u nabiimel` once
+  on the droplet with a PAT that has `read:packages`.
+- **Hands-off deploy:** set repo variable `AUTO_DEPLOY=true` and secrets
+  `DEPLOY_HOST` / `DEPLOY_USER` / `DEPLOY_SSH_KEY`, and CI runs the pull+up over
+  SSH after a successful build.
 
 Both processes run migrations on startup (concurrency-safe), so no separate
 migrate step is required — `docker compose run --rm migrate` still exists if you

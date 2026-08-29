@@ -8,6 +8,7 @@
   "ticket.open.failed": "Something went wrong creating your ticket. Please try again or contact staff.",
   "ticket.open.tooFast": "You are opening tickets too quickly. Wait a few seconds and try again.",
   "ticket.open.suspended": "Ticketing is disabled for this server. Please contact the server owner.",
+  "ticket.open.categoryDisabled": "“{category}” is paused right now. {reason}",
   "ticket.welcome.defaultTitle": "Ticket #{ticket.number}",
   "ticket.welcome.defaultDescription": "Thanks for reaching out, {user.mention}. Staff have been notified and will be with you shortly.\nDescribe your issue in as much detail as you can.",
   "ticket.welcome.openedBy": "Opened by",
