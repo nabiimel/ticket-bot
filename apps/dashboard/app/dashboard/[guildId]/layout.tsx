@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { signOut } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { requireGuildAccess } from "@/lib/guild-access";
 import { db, repos } from "@/lib/db";
 import { NavLink } from "@/components/NavLink";
@@ -31,6 +31,8 @@ export default async function GuildLayout({
   params: { guildId: string };
 }) {
   await requireGuildAccess(params.guildId);
+  const session = await auth();
+  const me = session?.user;
   const guild = repos.guilds.getGuild(db(), params.guildId);
   const suspended = repos.guildConfig.getGuildConfig(
     db(),
@@ -64,7 +66,25 @@ export default async function GuildLayout({
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            {me && (
+              <div
+                className="flex items-center gap-2"
+                title={`Signed in as ${me.name ?? "you"}`}
+              >
+                <div className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 text-[10px] font-bold text-dim">
+                  {me.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={me.image} alt="" className="h-full w-full" />
+                  ) : (
+                    (me.name ?? "?").slice(0, 1).toUpperCase()
+                  )}
+                </div>
+                <span className="hidden max-w-[10rem] truncate text-xs text-dim sm:block">
+                  {me.name}
+                </span>
+              </div>
+            )}
             <ThemeToggle />
             <form
               action={async () => {
@@ -72,7 +92,11 @@ export default async function GuildLayout({
                 await signOut({ redirectTo: "/" });
               }}
             >
-              <button className="btn-ghost text-xs" type="submit">
+              <button
+                className="btn-ghost text-xs"
+                type="submit"
+                title="Not you? Sign out"
+              >
                 Sign out
               </button>
             </form>

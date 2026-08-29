@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, repos } from "@/lib/db";
 import { SnippetEditor } from "@/components/SnippetEditor";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -16,12 +16,12 @@ export default function SnippetEditPage({
 
   return (
     <div className="space-y-4">
-      <Link
-        href={`/dashboard/${guildId}/snippets`}
-        className="text-xs text-faint hover:text-dim"
-      >
-        ← Snippets
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: "Snippets", href: `/dashboard/${guildId}/snippets` },
+          { label: snippet.name },
+        ]}
+      />
       <h1 className="text-2xl font-bold">{snippet.name}</h1>
       <SnippetEditor guildId={guildId} snippet={snippet} />
     </div>

@@ -3,6 +3,7 @@ import { signOut } from "@/auth";
 import { requireSession } from "@/lib/guild-access";
 import { getManageableGuilds } from "@/lib/discord";
 import { db, repos } from "@/lib/db";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -38,23 +39,52 @@ export default async function GuildPicker({
 
   return (
     <main className="relative z-10 mx-auto max-w-3xl px-6 py-12">
-      <div className="mb-8 flex items-end justify-between border-b border-line pb-4">
+      <div className="mb-8 flex items-end justify-between gap-4 border-b border-line pb-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Your servers</h1>
           <p className="mt-1 text-sm text-dim">
             Pick a server to configure its ticket system.
           </p>
         </div>
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/" });
-          }}
-        >
-          <button className="btn-ghost text-xs" type="submit">
-            Sign out
-          </button>
-        </form>
+        <div className="flex items-center gap-2.5">
+          {session.user && (
+            <div
+              className="flex items-center gap-2"
+              title={`Signed in as ${session.user.name ?? "you"}`}
+            >
+              <div className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 text-[10px] font-bold text-dim">
+                {session.user.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={session.user.image}
+                    alt=""
+                    className="h-full w-full"
+                  />
+                ) : (
+                  (session.user.name ?? "?").slice(0, 1).toUpperCase()
+                )}
+              </div>
+              <span className="hidden max-w-[10rem] truncate text-xs text-dim sm:block">
+                {session.user.name}
+              </span>
+            </div>
+          )}
+          <ThemeToggle />
+          <form
+            action={async () => {
+              "use server";
+              await signOut({ redirectTo: "/" });
+            }}
+          >
+            <button
+              className="btn-ghost text-xs"
+              type="submit"
+              title="Not you? Sign out"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </div>
 
       {searchParams.error === "no-access" && (

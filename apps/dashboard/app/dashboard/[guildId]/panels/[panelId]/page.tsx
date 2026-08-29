@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, repos } from "@/lib/db";
 import { getGuildChannels, textChannels } from "@/lib/discord";
 import { PanelEditor } from "@/components/PanelEditor";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -18,17 +18,17 @@ export default async function PanelEditPage({
   const categories = repos.categories.listCategories(db(), guildId);
   const channels = await getGuildChannels(guildId);
 
+  const title = panel.embed.title || `Panel #${panel.id}`;
+
   return (
     <div className="space-y-4">
-      <Link
-        href={`/dashboard/${guildId}/panels`}
-        className="text-xs text-faint hover:text-dim"
-      >
-        ← Panels
-      </Link>
-      <h1 className="text-2xl font-bold">
-        {panel.embed.title || `Panel #${panel.id}`}
-      </h1>
+      <Breadcrumbs
+        items={[
+          { label: "Panels", href: `/dashboard/${guildId}/panels` },
+          { label: title },
+        ]}
+      />
+      <h1 className="text-2xl font-bold">{title}</h1>
       <PanelEditor
         guildId={guildId}
         panel={panel}

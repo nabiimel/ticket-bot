@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db, repos } from "@/lib/db";
 import {
@@ -7,6 +6,7 @@ import {
   getGuildRoles,
 } from "@/lib/discord";
 import { CategoryEditor } from "@/components/CategoryEditor";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +29,12 @@ export default async function CategoryEditPage({
 
   return (
     <div className="space-y-4">
-      <Link
-        href={`/dashboard/${guildId}/categories`}
-        className="text-xs text-faint hover:text-dim"
-      >
-        ← Categories
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: "Categories", href: `/dashboard/${guildId}/categories` },
+          { label: category.label },
+        ]}
+      />
       <h1 className="text-2xl font-bold">{category.label}</h1>
       <CategoryEditor
         guildId={guildId}
