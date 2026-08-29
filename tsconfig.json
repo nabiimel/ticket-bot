@@ -1,0 +1,9 @@
+{
+  "//": "Editor/root config. Per-package `npm run typecheck` is the source of truth; the dashboard has its own Next-aware tsconfig.",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["packages/*/src/**/*", "apps/bot/src/**/*"],
+  "exclude": ["node_modules", "**/dist", "**/.next", "apps/dashboard"]
+}

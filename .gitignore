@@ -1,0 +1,29 @@
+node_modules/
+dist/
+.next/
+out/
+build/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# runtime data (sqlite db, transcripts, uploads)
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# logs
+*.log
+npm-debug.log*
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# claude code local
+.claude/

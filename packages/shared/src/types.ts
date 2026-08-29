@@ -1,0 +1,213 @@
+/**
+ * Shared data shapes used by both the bot and the dashboard.
+ * These describe the JSON payloads stored as TEXT columns in SQLite as well as
+ * the normalized records the repositories return.
+ */
+
+// ---------------------------------------------------------------------------
+// Embed / component config (authored in the dashboard visual editor)
+// ---------------------------------------------------------------------------
+
+export interface EmbedFooterConfig {
+  text: string;
+  iconUrl?: string;
+}
+
+export interface EmbedAuthorConfig {
+  name: string;
+  iconUrl?: string;
+  url?: string;
+}
+
+/**
+ * A subset of the Discord embed object that the dashboard editor exposes.
+ * `description` / `title` / field text may contain {placeholder} tokens — see
+ * `renderTemplate`.
+ */
+export interface EmbedConfig {
+  title?: string;
+  description?: string;
+  /** Hex string like "#5865F2". Rendered to an int for discord.js. */
+  color?: string;
+  /** Large image shown at the bottom of the embed (the "banner"). */
+  image?: string;
+  /** Small image shown top-right. */
+  thumbnail?: string;
+  footer?: EmbedFooterConfig;
+  author?: EmbedAuthorConfig;
+  /** When true the embed carries the current timestamp. */
+  timestamp?: boolean;
+}
+
+export type ButtonStyleName = "Primary" | "Secondary" | "Success" | "Danger";
+
+export interface ButtonConfig {
+  label: string;
+  /** Unicode emoji or a custom emoji id. */
+  emoji?: string;
+  style: ButtonStyleName;
+}
+
+// ---------------------------------------------------------------------------
+// Ticket open forms
+// ---------------------------------------------------------------------------
+
+export type FormFieldStyle = "short" | "paragraph";
+
+export interface FormField {
+  /** Stable key used to store the response. */
+  key: string;
+  label: string;
+  style: FormFieldStyle;
+  required: boolean;
+  minLength?: number;
+  maxLength?: number;
+  placeholder?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Normalized records
+// ---------------------------------------------------------------------------
+
+export type CloseBehaviour = "delete" | "archive";
+export type PanelStyle = "buttons" | "dropdown";
+export type PanelStatus = "draft" | "published";
+export type TicketStatus = "open" | "claimed" | "closed";
+
+export interface GuildConfig {
+  guildId: string;
+  logChannelId: string | null;
+  transcriptChannelId: string | null;
+  defaultStaffRoleId: string | null;
+  language: string;
+  namingScheme: string;
+  maxOpenPerUser: number;
+  closeBehaviour: CloseBehaviour;
+  archiveCategoryId: string | null;
+  feedbackEnabled: boolean;
+  feedbackPromptEmbed: EmbedConfig | null;
+  welcomeEmbed: EmbedConfig | null;
+  closeEmbed: EmbedConfig | null;
+  inactivityHours: number;
+  /** Delete saved transcript files older than this many days. 0 = keep forever. */
+  transcriptRetentionDays: number;
+  /** Show a Claim button and allow /ticket claim + /ticket transfer. */
+  claimingEnabled: boolean;
+}
+
+export interface CategoryConfig {
+  id: number;
+  guildId: string;
+  key: string;
+  label: string;
+  emoji: string | null;
+  description: string | null;
+  staffRoleIds: string[];
+  pingRoleIds: string[];
+  discordParentId: string | null;
+  /** null => fall back to the guild's default welcome embed. */
+  welcomeEmbed: EmbedConfig | null;
+  form: FormField[];
+  /** null => fall back to guild `maxOpenPerUser`. */
+  perUserLimit: number | null;
+  /** null => fall back to the guild's naming scheme. `{category}` = this key. */
+  namingScheme: string | null;
+  sortOrder: number;
+}
+
+export interface PanelConfig {
+  id: number;
+  guildId: string;
+  channelId: string | null;
+  messageId: string | null;
+  style: PanelStyle;
+  dropdownPlaceholder: string | null;
+  embed: EmbedConfig;
+  /** categoryId (as string) -> button styling */
+  buttons: Record<string, ButtonConfig>;
+  categoryIds: number[];
+  status: PanelStatus;
+  createdBy: string | null;
+}
+
+export interface TicketRecord {
+  id: number;
+  guildId: string;
+  number: number;
+  channelId: string;
+  categoryId: number | null;
+  openerId: string;
+  status: TicketStatus;
+  subject: string | null;
+  claimedBy: string | null;
+  createdAt: number;
+  claimedAt: number | null;
+  firstStaffMsgAt: number | null;
+  lastActivityAt: number;
+  closedAt: number | null;
+  closedBy: string | null;
+  closeReason: string | null;
+  transcriptUrl: string | null;
+}
+
+export interface BlacklistEntry {
+  guildId: string;
+  userId: string;
+  reason: string | null;
+  addedBy: string;
+  addedAt: number;
+}
+
+export interface RatingRecord {
+  ticketId: number;
+  guildId: string;
+  userId: string;
+  score: number;
+  comment: string | null;
+  createdAt: number;
+}
+
+// ---------------------------------------------------------------------------
+// Jobs (dashboard -> bot outbox)
+// ---------------------------------------------------------------------------
+
+export type JobType =
+  | "repost_panel"
+  | "edit_panel"
+  | "sync_ticket_perms"
+  | "post_preview"
+  | "admin_close_ticket";
+
+export type JobStatus = "pending" | "done" | "error";
+
+export interface JobRecord<P = unknown> {
+  id: number;
+  guildId: string;
+  type: JobType;
+  payload: P;
+  status: JobStatus;
+  attempts: number;
+  createdAt: number;
+  processedAt: number | null;
+  error: string | null;
+}
+
+export interface RepostPanelPayload {
+  panelId: number;
+}
+export interface EditPanelPayload {
+  panelId: number;
+}
+export interface SyncTicketPermsPayload {
+  /** Omit to re-sync every open ticket in the guild (e.g. default staff role changed). */
+  categoryId?: number;
+}
+export interface PostPreviewPayload {
+  channelId: string;
+  embed: EmbedConfig;
+}
+export interface AdminCloseTicketPayload {
+  ticketId: number;
+  closedBy: string;
+  reason?: string;
+}

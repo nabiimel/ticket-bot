@@ -1,0 +1,54 @@
+# Bot + dashboard share one SQLite file and the data directory, so they run as
+# two services on one host with a shared volume.
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    command: npm run start:bot
+    environment:
+      DATABASE_PATH: /data/ticketbot.db
+      DATA_DIR: /data
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DEV_GUILD_ID: ${DEV_GUILD_ID:-}
+      INTERNAL_PORT: 8787
+      INTERNAL_WAKE_SECRET: ${INTERNAL_WAKE_SECRET}
+    volumes:
+      - ticketbot-data:/data
+    expose:
+      - "8787"
+
+  dashboard:
+    build: .
+    restart: unless-stopped
+    command: npm run start:dash
+    depends_on:
+      - bot
+    environment:
+      DATABASE_PATH: /data/ticketbot.db
+      DATA_DIR: /data
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      DISCORD_BOT_TOKEN: ${DISCORD_TOKEN}
+      AUTH_SECRET: ${AUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      BOT_INTERNAL_URL: http://bot:8787
+      INTERNAL_WAKE_SECRET: ${INTERNAL_WAKE_SECRET}
+    volumes:
+      - ticketbot-data:/data
+    ports:
+      - "3000:3000"
+
+  # One-shot migration runner: `docker compose run --rm migrate`
+  migrate:
+    build: .
+    command: npm run migrate
+    environment:
+      DATABASE_PATH: /data/ticketbot.db
+    volumes:
+      - ticketbot-data:/data
+    profiles:
+      - tools
+
+volumes:
+  ticketbot-data:

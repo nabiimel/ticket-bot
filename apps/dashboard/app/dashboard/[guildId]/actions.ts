@@ -1,0 +1,447 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import {
+  SUPPORTED_LANGUAGES,
+  isSupportedLanguage,
+  isValidEmoji,
+  type ButtonConfig,
+  type EmbedConfig,
+  type FormField,
+  type PanelStyle,
+} from "@ticketbot/shared";
+import { requireGuildAccess } from "@/lib/guild-access";
+import { db, repos } from "@/lib/db";
+import { enqueueJob } from "@/lib/enqueue";
+import { bustDiscordCache } from "@/lib/discord";
+import { cleanupOrphanUploads } from "@/lib/uploads";
+import { err, ok, type FormState } from "@/lib/form";
+
+function rev(guildId: string) {
+  revalidatePath(`/dashboard/${guildId}`, "layout");
+}
+
+function audit(
+  guildId: string,
+  actorId: string,
+  action: string,
+  summary: string,
+) {
+  repos.audit.logAudit(db(), { guildId, actorId, action, summary });
+}
+
+const SNOWFLAKE = /^\d{15,20}$/;
+
+// ---------------------------------------------------------------------------
+// General settings
+// ---------------------------------------------------------------------------
+
+export async function saveGeneral(
+  guildId: string,
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const { userId } = await requireGuildAccess(guildId);
+  const str = (k: string) => {
+    const v = form.get(k);
+    return typeof v === "string" && v.trim().length ? v.trim() : null;
+  };
+
+  const fieldErrors: Record<string, string> = {};
+
+  const language = str("language") ?? "en";
+  if (!isSupportedLanguage(language)) {
+    fieldErrors.language = `Unsupported language (choose ${SUPPORTED_LANGUAGES.join(", ")})`;
+  }
+
+  const namingScheme = str("namingScheme") ?? "ticket-{number}";
+  if (namingScheme.length > 90) {
+    fieldErrors.namingScheme = "Keep the naming scheme under 90 characters";
+  } else if (!/\{(number|id)\}/.test(namingScheme)) {
+    fieldErrors.namingScheme =
+      "Include {number} or {id} so ticket channels get unique names";
+  }
+
+  const maxRaw = str("maxOpenPerUser");
+  const maxOpenPerUser = maxRaw == null ? 1 : Number(maxRaw);
+  if (
+    !Number.isInteger(maxOpenPerUser) ||
+    maxOpenPerUser < 1 ||
+    maxOpenPerUser > 25
+  ) {
+    fieldErrors.maxOpenPerUser = "Enter a whole number from 1 to 25";
+  }
+
+  const inacRaw = str("inactivityHours");
+  const inactivityHours = inacRaw == null ? 0 : Number(inacRaw);
+  if (
+    !Number.isInteger(inactivityHours) ||
+    inactivityHours < 0 ||
+    inactivityHours > 720
+  ) {
+    fieldErrors.inactivityHours = "Enter a whole number of hours from 0 to 720";
+  }
+
+  const retRaw = str("transcriptRetentionDays");
+  const transcriptRetentionDays = retRaw == null ? 0 : Number(retRaw);
+  if (
+    !Number.isInteger(transcriptRetentionDays) ||
+    transcriptRetentionDays < 0 ||
+    transcriptRetentionDays > 3650
+  ) {
+    fieldErrors.transcriptRetentionDays =
+      "Enter a whole number of days from 0 to 3650";
+  }
+
+  const closeBehaviour =
+    str("closeBehaviour") === "archive" ? "archive" : "delete";
+  const archiveCategoryId = str("archiveCategoryId");
+  if (closeBehaviour === "archive" && !archiveCategoryId) {
+    fieldErrors.archiveCategoryId =
+      "Choose an archive category when close behaviour is “archive”";
+  }
+
+  for (const k of [
+    "logChannelId",
+    "transcriptChannelId",
+    "defaultStaffRoleId",
+    "archiveCategoryId",
+  ] as const) {
+    const v = str(k);
+    if (v && !SNOWFLAKE.test(v)) fieldErrors[k] = "Invalid selection";
+  }
+
+  if (Object.keys(fieldErrors).length > 0) return err(fieldErrors);
+
+  const before = repos.guildConfig.getGuildConfig(db(), guildId);
+  const defaultStaffRoleId = str("defaultStaffRoleId");
+
+  repos.guildConfig.updateGuildConfig(db(), guildId, {
+    logChannelId: str("logChannelId"),
+    transcriptChannelId: str("transcriptChannelId"),
+    defaultStaffRoleId,
+    language,
+    namingScheme,
+    maxOpenPerUser,
+    closeBehaviour,
+    archiveCategoryId,
+    feedbackEnabled: form.get("feedbackEnabled") === "on",
+    claimingEnabled: form.get("claimingEnabled") === "on",
+    inactivityHours,
+    transcriptRetentionDays,
+  });
+
+  // The default staff role applies to every ticket — re-sync open channels.
+  if (before.defaultStaffRoleId !== defaultStaffRoleId) {
+    await enqueueJob(guildId, "sync_ticket_perms", {});
+  }
+
+  audit(guildId, userId, "general.update", "Updated general settings");
+  rev(guildId);
+  return ok("Settings saved");
+}
+
+// ---------------------------------------------------------------------------
+// Categories
+// ---------------------------------------------------------------------------
+
+export interface CategoryPayload {
+  key: string;
+  label: string;
+  emoji?: string | null;
+  description?: string | null;
+  staffRoleIds: string[];
+  pingRoleIds: string[];
+  discordParentId?: string | null;
+  perUserLimit?: number | null;
+  namingScheme?: string | null;
+  welcomeEmbed?: EmbedConfig | null;
+  form: FormField[];
+  sortOrder?: number;
+}
+
+const CATEGORY_KEY = /^[a-z0-9][a-z0-9_-]{0,31}$/;
+
+/** Form-driven category creation with inline validation; redirects to the editor on success. */
+export async function createCategoryFromForm(
+  guildId: string,
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const { userId } = await requireGuildAccess(guildId);
+  const key = String(form.get("key") ?? "")
+    .trim()
+    .toLowerCase();
+  const label = String(form.get("label") ?? "").trim();
+
+  const fieldErrors: Record<string, string> = {};
+  if (!key) fieldErrors.key = "Key is required";
+  else if (!CATEGORY_KEY.test(key))
+    fieldErrors.key =
+      "Lowercase letters, numbers, - or _ (max 32, can’t start with - or _)";
+  if (!label) fieldErrors.label = "Label is required";
+  else if (label.length > 100)
+    fieldErrors.label = "Keep the label under 100 characters";
+
+  if (
+    !fieldErrors.key &&
+    repos.categories.getCategoryByKey(db(), guildId, key)
+  ) {
+    fieldErrors.key = `A category with key “${key}” already exists`;
+  }
+  if (Object.keys(fieldErrors).length > 0) return err(fieldErrors);
+
+  const cat = repos.categories.createCategory(db(), guildId, {
+    key,
+    label,
+    staffRoleIds: [],
+    pingRoleIds: [],
+    form: [],
+  });
+  audit(
+    guildId,
+    userId,
+    "category.create",
+    `Created category “${label}” (${key})`,
+  );
+  rev(guildId);
+  redirect(`/dashboard/${guildId}/categories/${cat.id}`);
+}
+
+export async function saveCategory(
+  guildId: string,
+  categoryId: number,
+  payload: Partial<CategoryPayload>,
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  const existing = repos.categories.getCategory(db(), categoryId);
+  if (!existing || existing.guildId !== guildId) {
+    return { ok: false, error: "Not found" };
+  }
+  if (payload.emoji && !isValidEmoji(payload.emoji)) {
+    return {
+      ok: false,
+      error: "Emoji must be a single emoji or a custom emoji like <:name:id>",
+    };
+  }
+  if (
+    payload.namingScheme &&
+    (payload.namingScheme.length > 90 ||
+      !/\{(number|id)\}/.test(payload.namingScheme))
+  ) {
+    return {
+      ok: false,
+      error: "Channel naming must include {number} or {id} (max 90 chars)",
+    };
+  }
+  repos.categories.updateCategory(db(), categoryId, payload);
+  await enqueueJob(guildId, "sync_ticket_perms", { categoryId });
+  audit(
+    guildId,
+    userId,
+    "category.update",
+    `Updated category “${existing.label}” (${existing.key})`,
+  );
+  void cleanupOrphanUploads(guildId);
+  rev(guildId);
+  return { ok: true };
+}
+
+export async function deleteCategory(guildId: string, categoryId: number) {
+  const { userId } = await requireGuildAccess(guildId);
+  const existing = repos.categories.getCategory(db(), categoryId);
+  if (existing?.guildId === guildId) {
+    repos.categories.deleteCategory(db(), categoryId);
+    audit(
+      guildId,
+      userId,
+      "category.delete",
+      `Deleted category “${existing.label}” (${existing.key})`,
+    );
+    rev(guildId);
+  }
+  return { ok: true };
+}
+
+export async function reorderCategories(guildId: string, orderedIds: number[]) {
+  const { userId } = await requireGuildAccess(guildId);
+  const owned = new Set(
+    repos.categories.listCategories(db(), guildId).map((c) => c.id),
+  );
+  const ids = orderedIds.filter((id) => owned.has(id));
+  if (ids.length !== owned.size) return { ok: false, error: "Stale list" };
+  repos.categories.reorderCategories(db(), guildId, ids);
+  audit(guildId, userId, "category.reorder", "Reordered categories");
+  rev(guildId);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Panels
+// ---------------------------------------------------------------------------
+
+export interface PanelPayload {
+  channelId?: string | null;
+  style: PanelStyle;
+  dropdownPlaceholder?: string | null;
+  embed: EmbedConfig;
+  buttons: Record<string, ButtonConfig>;
+  categoryIds: number[];
+}
+
+export async function createPanel(guildId: string) {
+  const { userId } = await requireGuildAccess(guildId);
+  const panel = repos.panels.createPanel(db(), guildId, {});
+  audit(guildId, userId, "panel.create", `Created panel #${panel.id}`);
+  rev(guildId);
+  return { ok: true, id: panel.id };
+}
+
+export async function savePanel(
+  guildId: string,
+  panelId: number,
+  payload: PanelPayload,
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  const existing = repos.panels.getPanel(db(), panelId);
+  if (!existing || existing.guildId !== guildId) {
+    return { ok: false, error: "Not found" };
+  }
+  repos.panels.updatePanel(db(), panelId, payload);
+  audit(guildId, userId, "panel.update", `Saved panel #${panelId} (draft)`);
+  void cleanupOrphanUploads(guildId);
+  rev(guildId);
+  return { ok: true };
+}
+
+export async function publishPanel(guildId: string, panelId: number) {
+  const { userId } = await requireGuildAccess(guildId);
+  const panel = repos.panels.getPanel(db(), panelId);
+  if (!panel || panel.guildId !== guildId) {
+    return { ok: false, error: "Not found" };
+  }
+  if (!panel.channelId) {
+    return { ok: false, error: "Choose a target channel first" };
+  }
+  repos.panels.updatePanel(db(), panelId, { status: "published" });
+  await enqueueJob(guildId, panel.messageId ? "edit_panel" : "repost_panel", {
+    panelId,
+  });
+  audit(guildId, userId, "panel.publish", `Published panel #${panelId}`);
+  rev(guildId);
+  return { ok: true };
+}
+
+export async function deletePanel(guildId: string, panelId: number) {
+  const { userId } = await requireGuildAccess(guildId);
+  const panel = repos.panels.getPanel(db(), panelId);
+  if (panel?.guildId === guildId) {
+    repos.panels.deletePanel(db(), panelId);
+    audit(guildId, userId, "panel.delete", `Deleted panel #${panelId}`);
+    rev(guildId);
+  }
+  return { ok: true };
+}
+
+export async function sendTest(
+  guildId: string,
+  channelId: string,
+  embed: EmbedConfig,
+) {
+  await requireGuildAccess(guildId);
+  if (!channelId) return { ok: false, error: "Pick a channel" };
+  await enqueueJob(guildId, "post_preview", { channelId, embed });
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Messages (guild-level embeds)
+// ---------------------------------------------------------------------------
+
+export async function saveMessages(
+  guildId: string,
+  payload: {
+    welcomeEmbed: EmbedConfig | null;
+    closeEmbed: EmbedConfig | null;
+    feedbackPromptEmbed: EmbedConfig | null;
+  },
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  repos.guildConfig.updateGuildConfig(db(), guildId, payload);
+  audit(
+    guildId,
+    userId,
+    "messages.update",
+    "Updated welcome / close / feedback embeds",
+  );
+  void cleanupOrphanUploads(guildId);
+  rev(guildId);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Blacklist
+// ---------------------------------------------------------------------------
+
+export async function addBlacklist(
+  guildId: string,
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const session = await requireGuildAccess(guildId);
+  const userId = String(form.get("userId") ?? "").trim();
+  const reason = String(form.get("reason") ?? "").trim();
+
+  const fieldErrors: Record<string, string> = {};
+  if (!userId) {
+    fieldErrors.userId = "Enter a Discord user ID";
+  } else if (!SNOWFLAKE.test(userId)) {
+    fieldErrors.userId =
+      "That doesn’t look like a Discord user ID (15–20 digits)";
+  }
+  if (reason.length > 500) {
+    fieldErrors.reason = "Keep the reason under 500 characters";
+  }
+  if (Object.keys(fieldErrors).length > 0) return err(fieldErrors);
+
+  const already = repos.blacklist.isBlacklisted(db(), guildId, userId);
+  repos.blacklist.addToBlacklist(
+    db(),
+    guildId,
+    userId,
+    session.userId,
+    reason || null,
+  );
+  audit(
+    guildId,
+    session.userId,
+    "blacklist.add",
+    `${already ? "Updated" : "Blocked"} user ${userId}`,
+  );
+  rev(guildId);
+  return ok(already ? "Updated existing entry" : "User blocked");
+}
+
+export async function removeBlacklist(
+  guildId: string,
+  userId: string,
+): Promise<void> {
+  const session = await requireGuildAccess(guildId);
+  repos.blacklist.removeFromBlacklist(db(), guildId, userId);
+  audit(
+    guildId,
+    session.userId,
+    "blacklist.remove",
+    `Unblocked user ${userId}`,
+  );
+  rev(guildId);
+}
+
+export async function refreshDiscordCaches(guildId: string) {
+  await requireGuildAccess(guildId);
+  bustDiscordCache(`roles:${guildId}`);
+  bustDiscordCache(`channels:${guildId}`);
+  rev(guildId);
+  return { ok: true };
+}

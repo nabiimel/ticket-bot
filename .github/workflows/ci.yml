@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+      - name: Allow native build scripts
+        run: |
+          npm approve-scripts better-sqlite3 || true
+          npm approve-scripts esbuild || true
+          npm rebuild better-sqlite3
+
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Format check
+        run: npm run format:check
+      - name: Test
+        run: npm test
+
+      - name: Build dashboard
+        run: npm run build --workspace @ticketbot/dashboard
+        env:
+          SKIP_ENV_VALIDATION: "1"
