@@ -38,9 +38,12 @@ export default async function GuildLayout({
     db(),
     params.guildId,
   ).suspended;
-  const iconUrl = guild?.icon
-    ? `https://cdn.discordapp.com/icons/${params.guildId}/${guild.icon}.png?size=64`
-    : null;
+  // `guild.icon` may be a bare hash or (from older bot builds) a full CDN URL.
+  const iconUrl = !guild?.icon
+    ? null
+    : guild.icon.startsWith("http")
+      ? guild.icon
+      : `https://cdn.discordapp.com/icons/${params.guildId}/${guild.icon}.png?size=64`;
   const initials = (guild?.name ?? "S").slice(0, 2).toUpperCase();
 
   return (

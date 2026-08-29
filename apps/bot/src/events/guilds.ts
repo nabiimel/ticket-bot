@@ -8,7 +8,7 @@ export const guildCreate = {
   name: Events.GuildCreate as const,
   execute(guild: Guild) {
     const db = getDb();
-    repos.guilds.markGuildPresent(db, guild.id, guild.name, guild.iconURL());
+    repos.guilds.markGuildPresent(db, guild.id, guild.name, guild.icon);
     repos.guildConfig.ensureGuildConfig(db, guild.id);
     bustConfigCache(guild.id);
     logger.info(`Joined guild ${guild.name} (${guild.id})`);

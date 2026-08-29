@@ -15,7 +15,7 @@ export async function execute(client: Client<true>): Promise<void> {
   const seen = new Set<string>();
   for (const [, guild] of client.guilds.cache) {
     seen.add(guild.id);
-    repos.guilds.markGuildPresent(db, guild.id, guild.name, guild.iconURL());
+    repos.guilds.markGuildPresent(db, guild.id, guild.name, guild.icon);
     repos.guildConfig.ensureGuildConfig(db, guild.id);
   }
   for (const g of repos.guilds.listPresentGuilds(db)) {
