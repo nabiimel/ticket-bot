@@ -37,13 +37,19 @@ export default async function Overview({
   if (panels.filter((p) => p.status === "published").length === 0)
     setup.push("Publish a panel");
 
+  const claiming = cfg.claimingEnabled;
   const now = Date.now() / 1000;
   const oldestOpen = [...openTickets].sort((a, b) => a.createdAt - b.createdAt);
   const openRows = oldestOpen.slice(0, 8).map((t) => {
-    const staleUnclaimed = !t.claimedBy && now - t.createdAt > SLA_UNCLAIMED_S;
+    // "Unclaimed" only means anything when claiming is turned on.
+    const staleUnclaimed =
+      claiming && !t.claimedBy && now - t.createdAt > SLA_UNCLAIMED_S;
     const noReply = !t.firstStaffMsgAt && now - t.createdAt > SLA_NO_REPLY_S;
     return { t, flagged: staleUnclaimed || noReply, staleUnclaimed, noReply };
   });
+  const unclaimedCount = claiming
+    ? openTickets.filter((t) => !t.claimedBy).length
+    : 0;
 
   const maxCat = Math.max(1, ...stats.byCategory.map((c) => c.count));
 
@@ -175,8 +181,7 @@ export default async function Overview({
           <h2 className="font-semibold">Open tickets</h2>
           <span className="text-xs text-faint">
             {openTickets.length} total
-            {openTickets.filter((t) => !t.claimedBy).length > 0 &&
-              ` · ${openTickets.filter((t) => !t.claimedBy).length} unclaimed`}
+            {unclaimedCount > 0 && ` · ${unclaimedCount} unclaimed`}
           </span>
         </div>
         {openRows.length === 0 ? (
@@ -217,10 +222,18 @@ export default async function Overview({
                       {catLabel(t.categoryId)}
                     </td>
                     <td className="py-2 pr-3">
-                      {t.claimedBy ? (
-                        <span className="badge">claimed</span>
+                      {claiming ? (
+                        t.claimedBy ? (
+                          <span className="badge">claimed</span>
+                        ) : (
+                          <span className="badge badge-amber">unclaimed</span>
+                        )
+                      ) : t.firstStaffMsgAt ? (
+                        <span className="badge">in progress</span>
                       ) : (
-                        <span className="badge badge-amber">unclaimed</span>
+                        <span className="badge badge-amber">
+                          awaiting reply
+                        </span>
                       )}
                     </td>
                     <td className="py-2 pr-3 text-dim">
