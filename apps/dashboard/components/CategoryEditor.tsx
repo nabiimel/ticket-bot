@@ -19,6 +19,8 @@ import {
 } from "@/app/dashboard/[guildId]/actions";
 import { useUnsavedChanges } from "@/lib/dirty-store";
 import { useToast } from "./Toast";
+import { useConfirm } from "./ConfirmDialog";
+import { StickySaveBar } from "./StickySaveBar";
 
 type Opt = { id: string; name: string };
 
@@ -36,14 +38,21 @@ export function CategoryEditor({
   const router = useRouter();
   const [pending, start] = useTransition();
   const toast = useToast();
+  const confirm = useConfirm();
   const [c, setC] = useState<CategoryConfig>(category);
   const [useWelcome, setUseWelcome] = useState(!!category.welcomeEmbed);
   const [emojiError, setEmojiError] = useState<string | null>(null);
 
-  useUnsavedChanges(
+  const dirty =
     JSON.stringify(c) !== JSON.stringify(category) ||
-      useWelcome !== !!category.welcomeEmbed,
-  );
+    useWelcome !== !!category.welcomeEmbed;
+  useUnsavedChanges(dirty);
+
+  const discard = () => {
+    setC(category);
+    setUseWelcome(!!category.welcomeEmbed);
+    setEmojiError(null);
+  };
 
   const patch = (p: Partial<CategoryConfig>) =>
     setC((prev) => ({ ...prev, ...p }));
@@ -110,11 +119,20 @@ export function CategoryEditor({
     });
   };
 
-  const remove = () =>
+  const remove = async () => {
+    const ok = await confirm({
+      title: `Delete category “${category.label}”?`,
+      message:
+        "Its panels lose this option. Open tickets in this category are not affected.",
+      confirmLabel: "Delete category",
+      danger: true,
+    });
+    if (!ok) return;
     start(async () => {
       await deleteCategory(guildId, category.id);
       router.push(`/dashboard/${guildId}/categories`);
     });
+  };
 
   return (
     <div className="space-y-6">
@@ -366,12 +384,19 @@ export function CategoryEditor({
         </button>
         <button
           className="btn-danger ml-auto"
-          onClick={remove}
+          onClick={() => void remove()}
           disabled={pending}
         >
           Delete
         </button>
       </div>
+
+      <StickySaveBar
+        dirty={dirty}
+        saving={pending}
+        onSave={save}
+        onDiscard={discard}
+      />
     </div>
   );
 }

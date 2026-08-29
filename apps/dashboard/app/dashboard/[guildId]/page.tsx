@@ -1,23 +1,32 @@
 import Link from "next/link";
 import { db, repos } from "@/lib/db";
+import { guildHealth } from "@/lib/health";
 import { PageHeader } from "@/components/PageHeader";
 
 export const dynamic = "force-dynamic";
 
-export default function Overview({ params }: { params: { guildId: string } }) {
+export default async function Overview({
+  params,
+}: {
+  params: { guildId: string };
+}) {
   const { guildId } = params;
   const cfg = repos.guildConfig.getGuildConfig(db(), guildId);
   const stats = repos.stats.getGuildStats(db(), guildId, 30);
   const categories = repos.categories.listCategories(db(), guildId);
   const panels = repos.panels.listPanels(db(), guildId);
+  const issues = await guildHealth(guildId);
 
-  const needs: string[] = [];
-  if (!cfg.logChannelId) needs.push("Set a log channel in General");
+  const setup: string[] = [];
+  if (!cfg.logChannelId) setup.push("Set a log channel in General");
   if (!cfg.transcriptChannelId)
-    needs.push("Set a transcript channel in General");
-  if (categories.length === 0) needs.push("Create a ticket category");
+    setup.push("Set a transcript channel in General");
+  if (categories.length === 0) setup.push("Create a ticket category");
   if (panels.filter((p) => p.status === "published").length === 0)
-    needs.push("Publish a panel");
+    setup.push("Publish a panel");
+
+  const errors = issues.filter((i) => i.level === "error");
+  const warns = issues.filter((i) => i.level === "warn");
 
   return (
     <div className="page">
@@ -40,7 +49,40 @@ export default function Overview({ params }: { params: { guildId: string } }) {
         ))}
       </div>
 
-      {needs.length > 0 && (
+      {issues.length > 0 && (
+        <div className="card border-[rgba(237,66,69,.35)] bg-[rgba(237,66,69,.05)]">
+          <h2 className="mb-2 flex items-center gap-2 font-semibold text-red-300">
+            <span className="grid h-5 w-5 place-items-center rounded-full bg-red-500/20 text-xs">
+              !
+            </span>
+            Needs attention
+            <span className="text-xs font-normal text-faint">
+              {errors.length} error{errors.length === 1 ? "" : "s"} ·{" "}
+              {warns.length} warning{warns.length === 1 ? "" : "s"}
+            </span>
+          </h2>
+          <ul className="space-y-1.5 text-sm">
+            {issues.map((i, n) => (
+              <li key={n} className="flex items-start gap-2">
+                <span
+                  className={
+                    i.level === "error"
+                      ? "mt-0.5 text-red-400"
+                      : "mt-0.5 text-amber-400"
+                  }
+                >
+                  {i.level === "error" ? "✕" : "▲"}
+                </span>
+                <Link href={i.href} className="text-dim hover:text-ink">
+                  {i.message}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {setup.length > 0 && (
         <div className="card border-amber-500/30 bg-amber-500/[0.04]">
           <h2 className="mb-2 flex items-center gap-2 font-semibold text-amber-200">
             <span className="grid h-5 w-5 place-items-center rounded-full bg-amber-500/20 text-xs">
@@ -49,7 +91,7 @@ export default function Overview({ params }: { params: { guildId: string } }) {
             Finish setting up
           </h2>
           <ul className="ml-7 list-disc space-y-1 text-sm text-amber-100/80">
-            {needs.map((n) => (
+            {setup.map((n) => (
               <li key={n}>{n}</li>
             ))}
           </ul>

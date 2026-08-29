@@ -12,6 +12,7 @@ import { EmbedPreview } from "./EmbedPreview";
 import { saveMessages } from "@/app/dashboard/[guildId]/actions";
 import { useUnsavedChanges } from "@/lib/dirty-store";
 import { useToast } from "./Toast";
+import { StickySaveBar } from "./StickySaveBar";
 
 type Props = {
   guildId: string;
@@ -49,7 +50,8 @@ export function MessagesEditor({ guildId, welcome, close, feedback }: Props) {
     close: close ?? DEFAULT_CLOSE_EMBED,
     feedback: feedback ?? DEFAULT_FEEDBACK_EMBED,
   };
-  useUnsavedChanges(JSON.stringify(state) !== JSON.stringify(pristine));
+  const dirty = JSON.stringify(state) !== JSON.stringify(pristine);
+  useUnsavedChanges(dirty);
 
   const current = state[tab];
   const setCurrent = (next: EmbedConfig) =>
@@ -105,6 +107,13 @@ export function MessagesEditor({ guildId, welcome, close, feedback }: Props) {
           {pending ? "Saving…" : "Save all messages"}
         </button>
       </div>
+
+      <StickySaveBar
+        dirty={dirty}
+        saving={pending}
+        onSave={save}
+        onDiscard={() => setState(pristine)}
+      />
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { PLACEHOLDERS, type Snippet } from "@ticketbot/shared";
 import { saveSnippet, deleteSnippet } from "@/app/dashboard/[guildId]/actions";
 import { useUnsavedChanges } from "@/lib/dirty-store";
 import { useToast } from "./Toast";
+import { useConfirm } from "./ConfirmDialog";
+import { StickySaveBar } from "./StickySaveBar";
 
 const MAX_ATTACHMENTS = 5;
 
@@ -18,6 +20,7 @@ export function SnippetEditor({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const [pending, start] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -77,9 +80,21 @@ export function SnippetEditor({
       }
     });
 
-  const remove = () =>
+  const discard = () => {
+    setName(snippet.name);
+    setContent(snippet.content);
+    setAttachments(snippet.attachments);
+  };
+
+  const remove = async () => {
+    const ok = await confirm({
+      title: `Delete “${snippet.name}”?`,
+      message: "This snippet will be removed permanently.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     start(async () => {
-      if (!confirm(`Delete snippet “${snippet.name}”?`)) return;
       const res = await deleteSnippet(guildId, snippet.id);
       if (res.ok) {
         toast.success("Snippet deleted");
@@ -88,6 +103,7 @@ export function SnippetEditor({
         toast.error(res.error ?? "Couldn't delete snippet");
       }
     });
+  };
 
   return (
     <div className="space-y-5">
@@ -193,12 +209,19 @@ export function SnippetEditor({
         </button>
         <button
           className="text-sm text-discord-red hover:underline"
-          onClick={remove}
+          onClick={() => void remove()}
           disabled={pending}
         >
           Delete
         </button>
       </div>
+
+      <StickySaveBar
+        dirty={!pristine}
+        saving={pending}
+        onSave={save}
+        onDiscard={discard}
+      />
     </div>
   );
 }

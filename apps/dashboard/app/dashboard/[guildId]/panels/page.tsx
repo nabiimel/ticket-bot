@@ -4,6 +4,7 @@ import { db, repos } from "@/lib/db";
 import { createPanel } from "../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +33,14 @@ export default function PanelsPage({
         </form>
       </PageHeader>
 
-      <ul className="divide-row overflow-hidden rounded-xl border border-line bg-surface">
-        {panels.length === 0 && (
-          <li className="p-4 text-sm text-faint">No panels yet.</li>
-        )}
+      {panels.length === 0 && (
+        <EmptyState
+          title="No panels yet"
+          description="A panel is the message people click to open a ticket. Create one, add your categories, and publish it to a channel."
+        />
+      )}
+
+      <ul className="divide-row overflow-hidden rounded-xl border border-line bg-surface empty:hidden">
         {panels.map((p) => (
           <li
             key={p.id}

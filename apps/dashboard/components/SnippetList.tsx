@@ -5,6 +5,8 @@ import Link from "next/link";
 import type { Snippet } from "@ticketbot/shared";
 import { deleteSnippet } from "@/app/dashboard/[guildId]/actions";
 import { useToast } from "./Toast";
+import { useConfirm } from "./ConfirmDialog";
+import { EmptyState } from "./EmptyState";
 
 export function SnippetList({
   guildId,
@@ -16,9 +18,16 @@ export function SnippetList({
   const [snippets, setSnippets] = useState(initial);
   const [pending, start] = useTransition();
   const toast = useToast();
+  const confirm = useConfirm();
 
-  const remove = (id: number, name: string) => {
-    if (!confirm(`Delete snippet “${name}”?`)) return;
+  const remove = async (id: number, name: string) => {
+    const ok = await confirm({
+      title: `Delete “${name}”?`,
+      message: "This snippet will be removed permanently.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     setSnippets((cur) => cur.filter((s) => s.id !== id));
     start(async () => {
       const res = await deleteSnippet(guildId, id);
@@ -32,9 +41,10 @@ export function SnippetList({
 
   if (snippets.length === 0) {
     return (
-      <ul className="rounded-xl border border-line bg-surface">
-        <li className="p-4 text-sm text-faint">No snippets yet.</li>
-      </ul>
+      <EmptyState
+        title="No snippets yet"
+        description="Create a canned reply your staff can drop into a ticket with /snippet."
+      />
     );
   }
 
@@ -73,7 +83,7 @@ export function SnippetList({
             type="button"
             className="text-xs text-discord-red hover:underline"
             disabled={pending}
-            onClick={() => remove(s.id, s.name)}
+            onClick={() => void remove(s.id, s.name)}
           >
             Delete
           </button>

@@ -3,6 +3,7 @@ import { removeBlacklist } from "../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { BlacklistAddForm } from "@/components/BlacklistAddForm";
 import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +24,14 @@ export default function BlacklistPage({
 
       <BlacklistAddForm guildId={guildId} />
 
-      <ul className="divide-row overflow-hidden rounded-xl border border-line bg-surface">
-        {rows.length === 0 && (
-          <li className="p-4 text-sm text-faint">No blocked users.</li>
-        )}
+      {rows.length === 0 && (
+        <EmptyState
+          title="No blocked users"
+          description="Add a Discord user ID above to stop that person from opening tickets."
+        />
+      )}
+
+      <ul className="divide-row overflow-hidden rounded-xl border border-line bg-surface empty:hidden">
         {rows.map((r) => (
           <li
             key={r.userId}

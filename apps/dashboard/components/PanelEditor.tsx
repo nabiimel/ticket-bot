@@ -23,6 +23,8 @@ import {
 } from "@/app/dashboard/[guildId]/actions";
 import { useUnsavedChanges } from "@/lib/dirty-store";
 import { useToast } from "./Toast";
+import { useConfirm } from "./ConfirmDialog";
+import { StickySaveBar } from "./StickySaveBar";
 
 type Opt = { id: string; name: string };
 type Cat = { id: number; label: string; emoji: string | null };
@@ -48,6 +50,7 @@ export function PanelEditor({
   const router = useRouter();
   const [pending, start] = useTransition();
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [embed, setEmbed] = useState<EmbedConfig>(panel.embed);
   const [style, setStyle] = useState<PanelStyle>(panel.style);
@@ -80,7 +83,35 @@ export function PanelEditor({
     buttons: panel.buttons,
     categoryIds: panel.categoryIds,
   };
-  useUnsavedChanges(JSON.stringify(payload) !== JSON.stringify(pristine));
+  const dirty = JSON.stringify(payload) !== JSON.stringify(pristine);
+  useUnsavedChanges(dirty);
+
+  const discard = () => {
+    setEmbed(panel.embed);
+    setStyle(panel.style);
+    setPlaceholder(panel.dropdownPlaceholder ?? "");
+    setChannelId(panel.channelId);
+    setCatIds(panel.categoryIds);
+    setButtons(panel.buttons);
+  };
+
+  const saveDraft = () =>
+    run(() => savePanel(guildId, panel.id, payload), "Draft saved");
+
+  const removePanel = async () => {
+    const ok = await confirm({
+      title: "Delete this panel?",
+      message:
+        "If it's been posted to Discord, that message is left in place — delete it manually.",
+      confirmLabel: "Delete panel",
+      danger: true,
+    });
+    if (!ok) return;
+    start(async () => {
+      await deletePanel(guildId, panel.id);
+      router.push(`/dashboard/${guildId}/panels`);
+    });
+  };
 
   const addCat = (id: number) => setCatIds((p) => [...p, id]);
   const removeCat = (id: number) => setCatIds((p) => p.filter((x) => x !== id));
@@ -307,9 +338,7 @@ export function PanelEditor({
         <button
           className="btn-secondary"
           disabled={pending}
-          onClick={() =>
-            run(() => savePanel(guildId, panel.id, payload), "Draft saved")
-          }
+          onClick={saveDraft}
         >
           Save draft
         </button>
@@ -338,16 +367,19 @@ export function PanelEditor({
         <button
           className="btn-danger ml-auto"
           disabled={pending}
-          onClick={() =>
-            start(async () => {
-              await deletePanel(guildId, panel.id);
-              router.push(`/dashboard/${guildId}/panels`);
-            })
-          }
+          onClick={() => void removePanel()}
         >
           Delete
         </button>
       </div>
+
+      <StickySaveBar
+        dirty={dirty}
+        saving={pending}
+        onSave={saveDraft}
+        onDiscard={discard}
+        label="Unsaved draft changes"
+      />
     </div>
   );
 }

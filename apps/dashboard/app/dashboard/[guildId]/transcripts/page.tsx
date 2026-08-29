@@ -1,5 +1,6 @@
 import { db, repos } from "@/lib/db";
 import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +18,14 @@ export default function TranscriptsPage({
         title="Transcripts"
         description="Saved HTML logs of every closed ticket."
       />
-      <ul className="divide-row overflow-hidden rounded-xl border border-line bg-surface">
-        {tickets.length === 0 && (
-          <li className="p-4 text-sm text-faint">No closed tickets yet.</li>
-        )}
+      {tickets.length === 0 && (
+        <EmptyState
+          title="No closed tickets yet"
+          description="Once a ticket is closed, its full HTML transcript appears here."
+        />
+      )}
+
+      <ul className="divide-row overflow-hidden rounded-xl border border-line bg-surface empty:hidden">
         {tickets.map((tk) => (
           <li
             key={tk.id}

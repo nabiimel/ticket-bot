@@ -5,6 +5,8 @@ import { db, repos } from "@/lib/db";
 import { NavLink } from "@/components/NavLink";
 import { Icon } from "@/components/icons";
 import { ToastProvider } from "@/components/Toast";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -62,16 +64,19 @@ export default async function GuildLayout({
               </span>
             </div>
           </div>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/" });
-            }}
-          >
-            <button className="btn-ghost text-xs" type="submit">
-              Sign out
-            </button>
-          </form>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <form
+              action={async () => {
+                "use server";
+                await signOut({ redirectTo: "/" });
+              }}
+            >
+              <button className="btn-ghost text-xs" type="submit">
+                Sign out
+              </button>
+            </form>
+          </div>
         </div>
       </header>
 
@@ -100,7 +105,9 @@ export default async function GuildLayout({
               this server. Settings are read-only until it is lifted.
             </div>
           )}
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            <ConfirmProvider>{children}</ConfirmProvider>
+          </ToastProvider>
         </main>
       </div>
     </div>

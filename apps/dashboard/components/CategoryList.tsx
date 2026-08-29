@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import type { CategoryConfig } from "@ticketbot/shared";
 import { reorderCategories } from "@/app/dashboard/[guildId]/actions";
 import { useToast } from "./Toast";
+import { EmptyState } from "./EmptyState";
 
 export function CategoryList({
   guildId,
@@ -15,13 +16,11 @@ export function CategoryList({
 }) {
   const [cats, setCats] = useState(initial);
   const [pending, start] = useTransition();
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const overIdx = useRef<number | null>(null);
   const toast = useToast();
 
-  const move = (idx: number, dir: -1 | 1) => {
-    const j = idx + dir;
-    if (j < 0 || j >= cats.length) return;
-    const next = [...cats];
-    [next[idx], next[j]] = [next[j]!, next[idx]!];
+  const persist = (next: CategoryConfig[]) => {
     setCats(next);
     start(async () => {
       const res = await reorderCategories(
@@ -29,15 +28,27 @@ export function CategoryList({
         next.map((c) => c.id),
       );
       if (res.ok) toast.success("Order saved");
-      else toast.error("Couldn't save order");
+      else {
+        toast.error("Couldn't save order");
+        setCats(initial);
+      }
     });
+  };
+
+  const moveTo = (from: number, to: number) => {
+    if (to < 0 || to >= cats.length || from === to) return;
+    const next = [...cats];
+    const [row] = next.splice(from, 1);
+    next.splice(to, 0, row!);
+    persist(next);
   };
 
   if (cats.length === 0) {
     return (
-      <ul className="rounded-xl border border-line bg-surface">
-        <li className="p-4 text-sm text-faint">No categories yet.</li>
-      </ul>
+      <EmptyState
+        title="No categories yet"
+        description="A category is one type of ticket — Support, Rerolls, Report — each with its own staff, form and welcome message."
+      />
     );
   }
 
@@ -50,24 +61,36 @@ export function CategoryList({
       {cats.map((c, idx) => (
         <li
           key={c.id}
-          className="flex items-center gap-3 p-3.5 transition-colors hover:bg-surface-2"
+          draggable
+          onDragStart={() => setDragIdx(idx)}
+          onDragEnter={() => (overIdx.current = idx)}
+          onDragOver={(e) => e.preventDefault()}
+          onDragEnd={() => {
+            if (dragIdx !== null && overIdx.current !== null)
+              moveTo(dragIdx, overIdx.current);
+            setDragIdx(null);
+            overIdx.current = null;
+          }}
+          className={`flex items-center gap-3 p-3.5 transition-colors hover:bg-surface-2 ${
+            dragIdx === idx ? "opacity-40" : ""
+          }`}
         >
-          <div className="flex flex-col leading-none">
-            <button
-              className="px-1 text-faint hover:text-white disabled:opacity-30"
-              disabled={idx === 0 || pending}
-              onClick={() => move(idx, -1)}
-            >
-              ▲
-            </button>
-            <button
-              className="px-1 text-faint hover:text-white disabled:opacity-30"
-              disabled={idx === cats.length - 1 || pending}
-              onClick={() => move(idx, 1)}
-            >
-              ▼
-            </button>
-          </div>
+          <button
+            type="button"
+            aria-label={`Reorder ${c.label}. Use arrow keys.`}
+            className="cursor-grab touch-none px-1 text-faint hover:text-ink active:cursor-grabbing"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                moveTo(idx, idx - 1);
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                moveTo(idx, idx + 1);
+              }
+            }}
+          >
+            ⠿
+          </button>
           <div className="grow">
             <div className="font-medium">
               {c.emoji ? `${c.emoji} ` : ""}
