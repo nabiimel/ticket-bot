@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { db, repos } from "@/lib/db";
 import { guildHealth } from "@/lib/health";
+import { fmtAgo, fmtDuration } from "@/lib/format";
 import { PageHeader } from "@/components/PageHeader";
 
 export const dynamic = "force-dynamic";
+
+const SLA_UNCLAIMED_S = 30 * 60;
+const SLA_NO_REPLY_S = 60 * 60;
 
 export default async function Overview({
   params,
@@ -15,7 +19,15 @@ export default async function Overview({
   const stats = repos.stats.getGuildStats(db(), guildId, 30);
   const categories = repos.categories.listCategories(db(), guildId);
   const panels = repos.panels.listPanels(db(), guildId);
+  const openTickets = repos.tickets.listOpenTickets(db(), guildId);
+  const recentOpened = repos.tickets.listRecentlyOpened(db(), guildId, 15);
+  const recentClosed = repos.tickets.listClosedTickets(db(), guildId, 15);
+  const audit = repos.audit.listAudit(db(), guildId, 15);
   const issues = await guildHealth(guildId);
+
+  const catLabel = (id: number | null) =>
+    (id != null && categories.find((c) => c.id === id)?.label) ||
+    "Uncategorized";
 
   const setup: string[] = [];
   if (!cfg.logChannelId) setup.push("Set a log channel in General");
@@ -25,8 +37,44 @@ export default async function Overview({
   if (panels.filter((p) => p.status === "published").length === 0)
     setup.push("Publish a panel");
 
-  const errors = issues.filter((i) => i.level === "error");
-  const warns = issues.filter((i) => i.level === "warn");
+  const now = Date.now() / 1000;
+  const oldestOpen = [...openTickets].sort((a, b) => a.createdAt - b.createdAt);
+  const openRows = oldestOpen.slice(0, 8).map((t) => {
+    const staleUnclaimed = !t.claimedBy && now - t.createdAt > SLA_UNCLAIMED_S;
+    const noReply = !t.firstStaffMsgAt && now - t.createdAt > SLA_NO_REPLY_S;
+    return { t, flagged: staleUnclaimed || noReply, staleUnclaimed, noReply };
+  });
+
+  const maxCat = Math.max(1, ...stats.byCategory.map((c) => c.count));
+
+  type FeedItem = { at: number; kind: string; text: string; href?: string };
+  const feed: FeedItem[] = [
+    ...audit.map((a) => ({
+      at: a.createdAt,
+      kind: "config",
+      text: a.summary,
+      href: `/dashboard/${guildId}/audit`,
+    })),
+    ...recentClosed.map((t) => ({
+      at: t.closedAt ?? t.createdAt,
+      kind: "close",
+      text: `Ticket #${t.number} closed${t.closeReason ? ` — ${t.closeReason}` : ""}`,
+      href: `/dashboard/${guildId}/transcripts/${t.id}`,
+    })),
+    ...recentOpened.map((t) => ({
+      at: t.createdAt,
+      kind: "open",
+      text: `Ticket #${t.number} opened (${catLabel(t.categoryId)})`,
+    })),
+  ]
+    .sort((a, b) => b.at - a.at)
+    .slice(0, 12);
+
+  const dot: Record<string, string> = {
+    config: "bg-accent",
+    close: "bg-[var(--danger)]",
+    open: "bg-[var(--success)]",
+  };
 
   return (
     <div className="page">
@@ -36,20 +84,40 @@ export default async function Overview({
       />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          ["Open tickets", stats.openCount],
-          ["Closed · 30d", stats.closedCount],
-          ["Categories", categories.length],
-          ["Panels", panels.length],
-        ].map(([label, n]) => (
-          <div key={label} className="stat">
-            <div className="stat-value">{n}</div>
-            <div className="stat-label">{label}</div>
+        <div className="stat">
+          <div className="stat-value">{openTickets.length}</div>
+          <div className="stat-label">Open now</div>
+        </div>
+        <div className="stat">
+          <div className="stat-value">
+            {stats.avgRating != null ? `${stats.avgRating.toFixed(1)} ★` : "—"}
           </div>
-        ))}
+          <div className="stat-label">
+            Avg rating{" "}
+            {stats.ratingCount > 0 && (
+              <span className="text-faint">({stats.ratingCount})</span>
+            )}
+          </div>
+        </div>
+        <div className="stat">
+          <div className="stat-value">
+            {fmtDuration(stats.avgSecondsToClaim)}
+          </div>
+          <div className="stat-label">Avg time to claim</div>
+        </div>
+        <div className="stat">
+          <div className="stat-value">
+            {fmtDuration(stats.avgSecondsToClose)}
+          </div>
+          <div className="stat-label">Avg time to close</div>
+        </div>
       </div>
+      <p className="-mt-2 text-xs text-faint">
+        {stats.totalCount} opened · {stats.closedCount} closed in the last 30
+        days.
+      </p>
 
-      {issues.length > 0 && (
+      {issues.length > 0 ? (
         <div className="card border-[rgba(237,66,69,.35)] bg-[rgba(237,66,69,.05)]">
           <h2 className="mb-2 flex items-center gap-2 font-semibold text-red-300">
             <span className="grid h-5 w-5 place-items-center rounded-full bg-red-500/20 text-xs">
@@ -57,8 +125,8 @@ export default async function Overview({
             </span>
             Needs attention
             <span className="text-xs font-normal text-faint">
-              {errors.length} error{errors.length === 1 ? "" : "s"} ·{" "}
-              {warns.length} warning{warns.length === 1 ? "" : "s"}
+              {issues.filter((i) => i.level === "error").length} error(s) ·{" "}
+              {issues.filter((i) => i.level === "warn").length} warning(s)
             </span>
           </h2>
           <ul className="space-y-1.5 text-sm">
@@ -80,6 +148,10 @@ export default async function Overview({
             ))}
           </ul>
         </div>
+      ) : (
+        <div className="card border-[rgba(59,165,93,.3)] bg-[rgba(59,165,93,.05)] text-sm text-emerald-300">
+          ✓ No configuration problems found.
+        </div>
       )}
 
       {setup.length > 0 && (
@@ -98,6 +170,138 @@ export default async function Overview({
         </div>
       )}
 
+      <div className="card">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-semibold">Open tickets</h2>
+          <span className="text-xs text-faint">
+            {openTickets.length} total
+            {openTickets.filter((t) => !t.claimedBy).length > 0 &&
+              ` · ${openTickets.filter((t) => !t.claimedBy).length} unclaimed`}
+          </span>
+        </div>
+        {openRows.length === 0 ? (
+          <p className="text-sm text-faint">No open tickets. 🎉</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-faint">
+                <tr>
+                  <th className="pb-2 pr-3 font-medium">Ticket</th>
+                  <th className="pb-2 pr-3 font-medium">Type</th>
+                  <th className="pb-2 pr-3 font-medium">Status</th>
+                  <th className="pb-2 pr-3 font-medium">Age</th>
+                  <th className="pb-2 font-medium"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {openRows.map(({ t, flagged, staleUnclaimed, noReply }) => (
+                  <tr key={t.id}>
+                    <td className="py-2 pr-3">
+                      #{t.number}
+                      {flagged && (
+                        <span
+                          className="ml-1.5 text-amber-400"
+                          title={
+                            staleUnclaimed
+                              ? "Unclaimed for over 30 min"
+                              : noReply
+                                ? "No staff reply in over an hour"
+                                : ""
+                          }
+                        >
+                          ▲
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 text-dim">
+                      {catLabel(t.categoryId)}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {t.claimedBy ? (
+                        <span className="badge">claimed</span>
+                      ) : (
+                        <span className="badge badge-amber">unclaimed</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 text-dim">
+                      {fmtDuration(now - t.createdAt)}
+                    </td>
+                    <td className="py-2">
+                      <a
+                        className="text-xs text-accent hover:underline"
+                        href={`https://discord.com/channels/${guildId}/${t.channelId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Jump →
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="card">
+          <h2 className="mb-3 font-semibold">
+            By category{" "}
+            <span className="text-xs font-normal text-faint">· 30 days</span>
+          </h2>
+          {stats.byCategory.length === 0 ? (
+            <p className="text-sm text-faint">No tickets in this window.</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {stats.byCategory.map((c) => (
+                <li key={`${c.categoryId}`}>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="truncate">{c.label}</span>
+                    <span className="text-faint">{c.count}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className="h-full rounded-full bg-accent"
+                      style={{ width: `${(c.count / maxCat) * 100}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="card">
+          <h2 className="mb-3 font-semibold">Recent activity</h2>
+          {feed.length === 0 ? (
+            <p className="text-sm text-faint">Nothing yet.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {feed.map((f, n) => (
+                <li key={n} className="flex items-start gap-2.5">
+                  <span
+                    className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${dot[f.kind] ?? "bg-faint"}`}
+                  />
+                  <span className="min-w-0 flex-1">
+                    {f.href ? (
+                      <Link href={f.href} className="text-dim hover:text-ink">
+                        {f.text}
+                      </Link>
+                    ) : (
+                      <span className="text-dim">{f.text}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs text-faint">
+                    {fmtAgo(f.at)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-3">
         <Link className="btn-secondary" href={`/dashboard/${guildId}/general`}>
           General settings
@@ -110,6 +314,12 @@ export default async function Overview({
         </Link>
         <Link className="btn-secondary" href={`/dashboard/${guildId}/panels`}>
           Manage panels
+        </Link>
+        <Link
+          className="btn-secondary"
+          href={`/dashboard/${guildId}/transcripts`}
+        >
+          Transcripts
         </Link>
       </div>
     </div>

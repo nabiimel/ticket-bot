@@ -219,6 +219,21 @@ export function listClosedTickets(
     .map(map);
 }
 
+/** Most recently opened tickets in a guild, any status. For the activity feed. */
+export function listRecentlyOpened(
+  db: DB,
+  guildId: string,
+  limit = 15,
+): TicketRecord[] {
+  return db
+    .prepare(
+      `SELECT * FROM tickets WHERE guild_id = ?
+       ORDER BY created_at DESC LIMIT ?`,
+    )
+    .all(guildId, limit)
+    .map(map);
+}
+
 export function renameSubject(db: DB, id: number, subject: string): void {
   db.prepare(`UPDATE tickets SET subject = ? WHERE id = ?`).run(subject, id);
 }
