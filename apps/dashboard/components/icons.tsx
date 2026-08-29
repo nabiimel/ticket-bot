@@ -43,6 +43,12 @@ export const Icon = {
       <path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" />
     </svg>
   ),
+  snippets: (
+    <svg {...base}>
+      <path d="M4 7h16M4 12h10M4 17h7" />
+      <path d="m15 15 2 2 4-4" />
+    </svg>
+  ),
   blacklist: (
     <svg {...base}>
       <circle cx="12" cy="12" r="9" />

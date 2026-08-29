@@ -93,6 +93,22 @@ export interface GuildConfig {
   transcriptRetentionDays: number;
   /** Show a Claim button and allow /ticket claim + /ticket transfer. */
   claimingEnabled: boolean;
+  /** Host kill-switch: blocks ticket opening, jobs, sweeps and dashboard writes. */
+  suspended: boolean;
+}
+
+export interface Snippet {
+  id: number;
+  guildId: string;
+  /** Lookup key used by `/snippet name:<…>` (lowercase slug). */
+  name: string;
+  /** Message body; supports the same template tokens as other messages. */
+  content: string;
+  /** Dashboard-upload URLs (`/u/<guildId>/<file>`) sent as image attachments. */
+  attachments: string[];
+  createdBy: string | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface CategoryConfig {

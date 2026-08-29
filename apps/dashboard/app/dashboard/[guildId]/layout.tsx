@@ -14,6 +14,7 @@ const NAV = [
   { href: "/categories", label: "Categories", icon: Icon.categories },
   { href: "/panels", label: "Panels", icon: Icon.panels },
   { href: "/messages", label: "Messages", icon: Icon.messages },
+  { href: "/snippets", label: "Snippets", icon: Icon.snippets },
   { href: "/blacklist", label: "Blacklist", icon: Icon.blacklist },
   { href: "/transcripts", label: "Transcripts", icon: Icon.transcripts },
   { href: "/stats", label: "Stats", icon: Icon.stats },
@@ -29,6 +30,10 @@ export default async function GuildLayout({
 }) {
   await requireGuildAccess(params.guildId);
   const guild = repos.guilds.getGuild(db(), params.guildId);
+  const suspended = repos.guildConfig.getGuildConfig(
+    db(),
+    params.guildId,
+  ).suspended;
   const iconUrl = guild?.icon
     ? `https://cdn.discordapp.com/icons/${params.guildId}/${guild.icon}.png?size=64`
     : null;
@@ -86,6 +91,15 @@ export default async function GuildLayout({
           </nav>
         </aside>
         <main className="min-w-0 flex-1 pb-16">
+          {suspended && (
+            <div className="mb-6 rounded-xl border border-[rgba(237,66,69,.4)] bg-[rgba(237,66,69,.14)] px-4 py-3 text-sm text-red-200">
+              <strong className="font-semibold">
+                This server is suspended.
+              </strong>{" "}
+              The bot host has frozen ticketing and configuration changes for
+              this server. Settings are read-only until it is lifted.
+            </div>
+          )}
           <ToastProvider>{children}</ToastProvider>
         </main>
       </div>

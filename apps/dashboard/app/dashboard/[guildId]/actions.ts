@@ -16,7 +16,15 @@ import { db, repos } from "@/lib/db";
 import { enqueueJob } from "@/lib/enqueue";
 import { bustDiscordCache } from "@/lib/discord";
 import { cleanupOrphanUploads } from "@/lib/uploads";
+import { hit } from "@/lib/cooldown";
 import { err, ok, type FormState } from "@/lib/form";
+
+const SUSPENDED_MSG = "This server has been suspended by the bot host.";
+
+/** True when the host operator has suspended this guild (writes are frozen). */
+function isSuspended(guildId: string): boolean {
+  return repos.guildConfig.getGuildConfig(db(), guildId).suspended;
+}
 
 function rev(guildId: string) {
   revalidatePath(`/dashboard/${guildId}`, "layout");
@@ -43,6 +51,7 @@ export async function saveGeneral(
   form: FormData,
 ): Promise<FormState> {
   const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, message: SUSPENDED_MSG };
   const str = (k: string) => {
     const v = form.get(k);
     return typeof v === "string" && v.trim().length ? v.trim() : null;
@@ -170,6 +179,7 @@ export async function createCategoryFromForm(
   form: FormData,
 ): Promise<FormState> {
   const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, message: SUSPENDED_MSG };
   const key = String(form.get("key") ?? "")
     .trim()
     .toLowerCase();
@@ -215,6 +225,7 @@ export async function saveCategory(
   payload: Partial<CategoryPayload>,
 ) {
   const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const existing = repos.categories.getCategory(db(), categoryId);
   if (!existing || existing.guildId !== guildId) {
     return { ok: false, error: "Not found" };
@@ -250,6 +261,7 @@ export async function saveCategory(
 
 export async function deleteCategory(guildId: string, categoryId: number) {
   const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const existing = repos.categories.getCategory(db(), categoryId);
   if (existing?.guildId === guildId) {
     repos.categories.deleteCategory(db(), categoryId);
@@ -266,6 +278,7 @@ export async function deleteCategory(guildId: string, categoryId: number) {
 
 export async function reorderCategories(guildId: string, orderedIds: number[]) {
   const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const owned = new Set(
     repos.categories.listCategories(db(), guildId).map((c) => c.id),
   );
@@ -292,6 +305,7 @@ export interface PanelPayload {
 
 export async function createPanel(guildId: string) {
   const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const panel = repos.panels.createPanel(db(), guildId, {});
   audit(guildId, userId, "panel.create", `Created panel #${panel.id}`);
   rev(guildId);
@@ -304,6 +318,7 @@ export async function savePanel(
   payload: PanelPayload,
 ) {
   const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const existing = repos.panels.getPanel(db(), panelId);
   if (!existing || existing.guildId !== guildId) {
     return { ok: false, error: "Not found" };
@@ -317,6 +332,7 @@ export async function savePanel(
 
 export async function publishPanel(guildId: string, panelId: number) {
   const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const panel = repos.panels.getPanel(db(), panelId);
   if (!panel || panel.guildId !== guildId) {
     return { ok: false, error: "Not found" };
@@ -335,6 +351,7 @@ export async function publishPanel(guildId: string, panelId: number) {
 
 export async function deletePanel(guildId: string, panelId: number) {
   const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const panel = repos.panels.getPanel(db(), panelId);
   if (panel?.guildId === guildId) {
     repos.panels.deletePanel(db(), panelId);
@@ -350,7 +367,11 @@ export async function sendTest(
   embed: EmbedConfig,
 ) {
   await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   if (!channelId) return { ok: false, error: "Pick a channel" };
+  if (!hit(`test:${guildId}`, 15_000)) {
+    return { ok: false, error: "Wait a few seconds between test sends." };
+  }
   await enqueueJob(guildId, "post_preview", { channelId, embed });
   return { ok: true };
 }
@@ -368,6 +389,7 @@ export async function saveMessages(
   },
 ) {
   const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   repos.guildConfig.updateGuildConfig(db(), guildId, payload);
   audit(
     guildId,
@@ -390,6 +412,7 @@ export async function addBlacklist(
   form: FormData,
 ): Promise<FormState> {
   const session = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, message: SUSPENDED_MSG };
   const userId = String(form.get("userId") ?? "").trim();
   const reason = String(form.get("reason") ?? "").trim();
 
@@ -428,6 +451,7 @@ export async function removeBlacklist(
   userId: string,
 ): Promise<void> {
   const session = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return;
   repos.blacklist.removeFromBlacklist(db(), guildId, userId);
   audit(
     guildId,
@@ -436,6 +460,132 @@ export async function removeBlacklist(
     `Unblocked user ${userId}`,
   );
   rev(guildId);
+}
+
+// ---------------------------------------------------------------------------
+// Snippets (canned responses)
+// ---------------------------------------------------------------------------
+
+const SNIPPET_NAME = /^[a-z0-9][a-z0-9_-]{0,49}$/;
+const MAX_SNIPPETS = 100;
+const MAX_SNIPPET_ATTACHMENTS = 5;
+
+/** Keep only `/u/<thisGuild>/<file>` URLs, de-duped, capped. */
+function sanitizeAttachments(guildId: string, raw: unknown): string[] {
+  const re = new RegExp(`^/u/${guildId}/[A-Za-z0-9._-]+$`);
+  const list = Array.isArray(raw) ? raw : [];
+  const out: string[] = [];
+  for (const v of list) {
+    if (typeof v === "string" && re.test(v) && !out.includes(v)) out.push(v);
+  }
+  return out.slice(0, MAX_SNIPPET_ATTACHMENTS);
+}
+
+export async function createSnippetFromForm(
+  guildId: string,
+  _prev: FormState,
+  form: FormData,
+): Promise<FormState> {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, message: SUSPENDED_MSG };
+
+  const name = String(form.get("name") ?? "")
+    .trim()
+    .toLowerCase();
+  const fieldErrors: Record<string, string> = {};
+  if (!name) fieldErrors.name = "Name is required";
+  else if (!SNIPPET_NAME.test(name))
+    fieldErrors.name =
+      "Lowercase letters, numbers, - or _ (max 50, can’t start with - or _)";
+
+  if (
+    !fieldErrors.name &&
+    repos.snippets.getSnippetByName(db(), guildId, name)
+  ) {
+    fieldErrors.name = `A snippet named “${name}” already exists`;
+  }
+  if (
+    !fieldErrors.name &&
+    repos.snippets.countSnippets(db(), guildId) >= MAX_SNIPPETS
+  ) {
+    fieldErrors.name = `This server already has ${MAX_SNIPPETS} snippets`;
+  }
+  if (Object.keys(fieldErrors).length > 0) return err(fieldErrors);
+
+  const snip = repos.snippets.createSnippet(db(), guildId, {
+    name,
+    createdBy: userId,
+  });
+  audit(guildId, userId, "snippet.create", `Created snippet “${name}”`);
+  rev(guildId);
+  redirect(`/dashboard/${guildId}/snippets/${snip.id}`);
+}
+
+export async function saveSnippet(
+  guildId: string,
+  id: number,
+  payload: { name?: string; content?: string; attachments?: string[] },
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const existing = repos.snippets.getSnippet(db(), id);
+  if (!existing || existing.guildId !== guildId) {
+    return { ok: false, error: "Not found" };
+  }
+
+  const patch: { name?: string; content?: string; attachments?: string[] } = {};
+
+  if (payload.name != null) {
+    const name = payload.name.trim().toLowerCase();
+    if (!SNIPPET_NAME.test(name)) {
+      return { ok: false, error: "Invalid snippet name" };
+    }
+    const clash = repos.snippets.getSnippetByName(db(), guildId, name);
+    if (clash && clash.id !== id) {
+      return { ok: false, error: `A snippet named “${name}” already exists` };
+    }
+    patch.name = name;
+  }
+
+  if (payload.content != null) {
+    if (payload.content.length > 2000) {
+      return { ok: false, error: "Keep snippet text under 2000 characters" };
+    }
+    patch.content = payload.content;
+  }
+
+  if (payload.attachments != null) {
+    patch.attachments = sanitizeAttachments(guildId, payload.attachments);
+  }
+
+  repos.snippets.updateSnippet(db(), id, patch);
+  audit(
+    guildId,
+    userId,
+    "snippet.update",
+    `Updated snippet “${patch.name ?? existing.name}”`,
+  );
+  void cleanupOrphanUploads(guildId);
+  rev(guildId);
+  return { ok: true };
+}
+
+export async function deleteSnippet(guildId: string, id: number) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const existing = repos.snippets.getSnippet(db(), id);
+  if (existing?.guildId === guildId) {
+    repos.snippets.deleteSnippet(db(), id);
+    audit(
+      guildId,
+      userId,
+      "snippet.delete",
+      `Deleted snippet “${existing.name}”`,
+    );
+    void cleanupOrphanUploads(guildId);
+    rev(guildId);
+  }
+  return { ok: true };
 }
 
 export async function refreshDiscordCaches(guildId: string) {

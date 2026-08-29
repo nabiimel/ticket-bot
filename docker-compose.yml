@@ -1,10 +1,21 @@
 # Bot + dashboard share one SQLite file and the data directory, so they run as
 # two services on one host with a shared volume.
+
+# Cap container logs so the disk can't fill over time (json-file default is
+# unbounded). The daemon-wide equivalent lives in /etc/docker/daemon.json.
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
 services:
   bot:
     build: .
     restart: unless-stopped
     command: npm run start:bot
+    <<: *logging
     environment:
       DATABASE_PATH: /data/ticketbot.db
       DATA_DIR: /data
@@ -13,15 +24,29 @@ services:
       DEV_GUILD_ID: ${DEV_GUILD_ID:-}
       INTERNAL_PORT: 8787
       INTERNAL_WAKE_SECRET: ${INTERNAL_WAKE_SECRET}
+      LOG_WEBHOOK_URL: ${LOG_WEBHOOK_URL:-}
     volumes:
       - ticketbot-data:/data
     expose:
       - "8787"
+    labels:
+      autoheal: "true"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:8787/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
 
   dashboard:
     build: .
     restart: unless-stopped
     command: npm run start:dash
+    <<: *logging
     depends_on:
       - bot
     environment:
@@ -38,6 +63,51 @@ services:
       - ticketbot-data:/data
     ports:
       - "3000:3000"
+    labels:
+      autoheal: "true"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
+  # Restarts any container Docker has marked `unhealthy` (the `restart:` policy
+  # only reacts to a process exit, not a wedged one).
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    <<: *logging
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 15
+      AUTOHEAL_START_PERIOD: 60
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # Nightly archive of the data volume. Works with no config (keeps 14 local
+  # archives in the `ticketbot-backups` volume); set the AWS_* vars in .env to
+  # also push each archive to Cloudflare R2 / DO Spaces / S3.
+  backup:
+    image: offen/docker-volume-backup:v2
+    restart: unless-stopped
+    <<: *logging
+    environment:
+      BACKUP_CRON_EXPRESSION: "0 3 * * *"
+      BACKUP_FILENAME: "ticketbot-%Y%m%d-%H%M%S.tar.gz"
+      BACKUP_RETENTION_DAYS: "14"
+      BACKUP_PRUNING_PREFIX: "ticketbot-"
+      AWS_S3_BUCKET_NAME: ${BACKUP_S3_BUCKET:-}
+      AWS_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      AWS_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY:-}
+      AWS_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_KEY:-}
+    volumes:
+      - ticketbot-data:/backup/ticketbot-data:ro
+      - ticketbot-backups:/archive
 
   # One-shot migration runner: `docker compose run --rm migrate`
   migrate:
@@ -52,3 +122,4 @@ services:
 
 volumes:
   ticketbot-data:
+  ticketbot-backups:

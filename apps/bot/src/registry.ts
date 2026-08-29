@@ -1,4 +1,5 @@
 import type {
+  AutocompleteInteraction,
   ButtonInteraction,
   ChatInputCommandInteraction,
   ModalSubmitInteraction,
@@ -12,6 +13,8 @@ export interface SlashCommand {
     name: string;
   };
   execute(interaction: ChatInputCommandInteraction): Promise<void>;
+  /** Optional handler for `setAutocomplete(true)` options on this command. */
+  autocomplete?(interaction: AutocompleteInteraction): Promise<void>;
 }
 
 /**

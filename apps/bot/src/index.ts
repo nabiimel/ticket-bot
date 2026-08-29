@@ -1,10 +1,9 @@
 import type { Server } from "node:http";
-import { Client, GatewayIntentBits, Partials, REST, Routes } from "discord.js";
+import { Client, GatewayIntentBits, Partials } from "discord.js";
 import { closeDb } from "@ticketbot/db";
 import { config } from "./config.js";
 import { getDb } from "./lib/db.js";
-import { logger } from "./lib/logger.js";
-import { commands } from "./commands/index.js";
+import { logger, flushLogWebhook } from "./lib/logger.js";
 import * as ready from "./events/ready.js";
 import * as interactionCreate from "./events/interactionCreate.js";
 import * as messageCreate from "./events/messageCreate.js";
@@ -13,6 +12,7 @@ import { guildCreate, guildDelete } from "./events/guilds.js";
 import { processJobsNow, startJobsWorker, stopJobsWorker } from "./lib/jobs.js";
 import { startInternalServer } from "./lib/internalServer.js";
 import { startScheduler, stopScheduler } from "./lib/scheduler.js";
+import { syncCommands } from "./lib/deploy.js";
 
 getDb(); // open + migrate before we connect
 
@@ -27,6 +27,7 @@ const client = new Client({
 });
 
 let internalServer: Server | null = null;
+let watchdog: NodeJS.Timeout | null = null;
 
 client.once(ready.name, (c) => {
   void ready.execute(c);
@@ -47,23 +48,33 @@ client.once("ready", (c) => {
   startJobsWorker(c);
   internalServer = startInternalServer(c);
   startScheduler(c);
+  startWatchdog();
 });
 
-async function maybeAutoRegister(): Promise<void> {
-  if (!config.devGuildId) return;
-  try {
-    const rest = new REST({ version: "10" }).setToken(config.DISCORD_TOKEN);
-    await rest.put(
-      Routes.applicationGuildCommands(
-        config.DISCORD_CLIENT_ID,
-        config.devGuildId,
-      ),
-      { body: commands.map((c) => c.data.toJSON()) },
-    );
-    logger.info(`Auto-registered ${commands.length} commands to dev guild`);
-  } catch (err) {
-    logger.warn("dev-guild command auto-register failed", err);
-  }
+/**
+ * Self-heal for a wedged gateway connection: `restart: unless-stopped` only
+ * reacts to a process exit, not a silently-dead WebSocket. If the client stays
+ * un-ready for three consecutive checks (~3 min) after having connected once,
+ * exit non-zero and let Docker recycle the container.
+ */
+function startWatchdog(): void {
+  let misses = 0;
+  if (watchdog) clearInterval(watchdog);
+  watchdog = setInterval(() => {
+    if (client.isReady()) {
+      misses = 0;
+      return;
+    }
+    misses++;
+    logger.warn(`watchdog: client not ready (${misses}/3)`);
+    if (misses >= 3) {
+      logger.error(
+        "watchdog: client unready for 3 checks — exiting for restart",
+      );
+      process.exit(1);
+    }
+  }, 60_000);
+  watchdog.unref();
 }
 
 let shuttingDown = false;
@@ -77,11 +88,13 @@ async function shutdown(signal: string): Promise<void> {
   kill.unref();
 
   try {
+    if (watchdog) clearInterval(watchdog);
     stopScheduler();
     stopJobsWorker();
     if (client.isReady()) await processJobsNow(client).catch(() => {});
     internalServer?.close();
     await client.destroy();
+    await flushLogWebhook().catch(() => {});
     closeDb();
   } catch (err) {
     logger.error("error during shutdown", err);
@@ -95,5 +108,5 @@ process.on("unhandledRejection", (err) =>
 process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
-await maybeAutoRegister();
+await syncCommands();
 await client.login(config.DISCORD_TOKEN);

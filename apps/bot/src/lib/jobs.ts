@@ -191,6 +191,13 @@ export async function processJobsNow(client: Client): Promise<number> {
       if (batch.length === 0) break;
       for (const job of batch) {
         try {
+          if (repos.guildConfig.getGuildConfig(db, job.guildId).suspended) {
+            repos.jobs.completeJob(db, job.id);
+            logger.warn(
+              `job ${job.id} skipped — guild ${job.guildId} suspended`,
+            );
+            continue;
+          }
           await processOne(client, job);
           repos.jobs.completeJob(db, job.id);
           bustConfigCache(job.guildId);

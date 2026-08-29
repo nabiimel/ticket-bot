@@ -33,6 +33,7 @@ function map(r: any): GuildConfig {
     inactivityHours: r.inactivity_hours ?? 0,
     transcriptRetentionDays: r.transcript_retention_days ?? 0,
     claimingEnabled: r.claiming_enabled == null ? true : !!r.claiming_enabled,
+    suspended: !!r.suspended,
   };
 }
 
@@ -54,6 +55,7 @@ function defaults(guildId: string): GuildConfig {
     inactivityHours: 0,
     transcriptRetentionDays: 0,
     claimingEnabled: true,
+    suspended: false,
   };
 }
 
@@ -89,6 +91,7 @@ const COLUMN_MAP: Record<string, string> = {
   inactivityHours: "inactivity_hours",
   transcriptRetentionDays: "transcript_retention_days",
   claimingEnabled: "claiming_enabled",
+  suspended: "suspended",
 };
 
 type Patch = Partial<Omit<GuildConfig, "guildId">>;
@@ -106,7 +109,11 @@ export function updateGuildConfig(
     if (!(key in patch)) continue;
     const raw = (patch as Record<string, unknown>)[key];
     let value: unknown = raw;
-    if (key === "feedbackEnabled" || key === "claimingEnabled")
+    if (
+      key === "feedbackEnabled" ||
+      key === "claimingEnabled" ||
+      key === "suspended"
+    )
       value = raw ? 1 : 0;
     else if (
       key === "feedbackPromptEmbed" ||

@@ -21,8 +21,9 @@ function secretMatches(provided: string | string[] | undefined): boolean {
 export function startInternalServer(client: Client): Server {
   const server = createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") {
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, ready: client.isReady() }));
+      const ready = client.isReady();
+      res.writeHead(ready ? 200 : 503, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: ready, ready }));
       return;
     }
 

@@ -35,7 +35,7 @@ export interface FormAnswer {
 }
 
 /** Add {form.<key>} tokens plus {form.all} to a template context. */
-function injectFormTokens(
+export function injectFormTokens(
   ctx: Record<string, string | number | undefined>,
   answers: FormAnswer[],
 ): void {

@@ -17,6 +17,7 @@ import {
 } from "../lib/configCache.js";
 import { buildContext } from "../lib/context.js";
 import { createTicket, type FormAnswer } from "../lib/ticketManager.js";
+import { hit } from "../lib/cooldown.js";
 import { logger } from "../lib/logger.js";
 
 type AnyInteraction =
@@ -54,6 +55,11 @@ export async function startOpen(
   const guardMsg = openGuard(interaction.user.id, guildId, category, lang);
   if (guardMsg) {
     await ephemeral(interaction, guardMsg);
+    return;
+  }
+
+  if (!hit(`open:${guildId}:${interaction.user.id}`, 20_000)) {
+    await ephemeral(interaction, t("ticket.open.tooFast", lang));
     return;
   }
 
@@ -103,10 +109,13 @@ function openGuard(
   lang: string,
 ): string | null {
   const db = getDb();
+  const guildConfig = getGuildConfigCached(guildId);
+  if (guildConfig.suspended) {
+    return t("ticket.open.suspended", lang);
+  }
   if (repos.blacklist.isBlacklisted(db, guildId, userId)) {
     return t("ticket.open.blacklisted", lang);
   }
-  const guildConfig = getGuildConfigCached(guildId);
   const globalOpen = repos.tickets.countOpenByUser(db, guildId, userId);
   if (globalOpen >= guildConfig.maxOpenPerUser) {
     return t("ticket.open.limitReached", lang, { count: globalOpen });

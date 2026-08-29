@@ -19,6 +19,8 @@ describe("migrations", () => {
       "002_extras",
       "003_claiming",
       "004_category_naming",
+      "005_suspend",
+      "006_snippets",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
@@ -85,11 +87,50 @@ describe("guildConfig repo", () => {
     expect(cfg.welcomeEmbed?.title).toBe("hi");
     expect(cfg.closeBehaviour).toBe("delete");
     expect(cfg.claimingEnabled).toBe(true); // default
+    expect(cfg.suspended).toBe(false); // default
 
     repos.guildConfig.updateGuildConfig(db, "g1", { claimingEnabled: false });
     expect(repos.guildConfig.getGuildConfig(db, "g1").claimingEnabled).toBe(
       false,
     );
+  });
+
+  it("round-trips the suspended flag as a boolean", () => {
+    const db = freshDb();
+    expect(repos.guildConfig.getGuildConfig(db, "g1").suspended).toBe(false);
+    repos.guildConfig.updateGuildConfig(db, "g1", { suspended: true });
+    expect(repos.guildConfig.getGuildConfig(db, "g1").suspended).toBe(true);
+    repos.guildConfig.updateGuildConfig(db, "g1", { suspended: false });
+    expect(repos.guildConfig.getGuildConfig(db, "g1").suspended).toBe(false);
+  });
+});
+
+describe("snippets repo", () => {
+  it("creates, looks up by name, updates attachments, and enforces unique names", () => {
+    const db = freshDb();
+    const s = repos.snippets.createSnippet(db, "g1", {
+      name: "welcome",
+      content: "Hi {user}",
+      createdBy: "u1",
+    });
+    expect(s.attachments).toEqual([]);
+    expect(repos.snippets.getSnippetByName(db, "g1", "welcome")?.id).toBe(s.id);
+    expect(repos.snippets.countSnippets(db, "g1")).toBe(1);
+
+    repos.snippets.updateSnippet(db, s.id, {
+      attachments: ["/u/g1/a.png", "/u/g1/b.png"],
+    });
+    expect(repos.snippets.getSnippet(db, s.id)?.attachments).toEqual([
+      "/u/g1/a.png",
+      "/u/g1/b.png",
+    ]);
+
+    expect(() =>
+      repos.snippets.createSnippet(db, "g1", { name: "welcome" }),
+    ).toThrow();
+
+    repos.snippets.deleteSnippet(db, s.id);
+    expect(repos.snippets.getSnippet(db, s.id)).toBeNull();
   });
 });
 

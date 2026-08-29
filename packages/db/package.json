@@ -11,6 +11,7 @@
   },
   "scripts": {
     "migrate": "tsx src/migrate-cli.ts",
+    "guild": "tsx src/guild-cli.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -6,6 +6,8 @@
   "ticket.open.creating": "Creating your ticket…",
   "ticket.open.created": "Your ticket has been created: {channel}",
   "ticket.open.failed": "Something went wrong creating your ticket. Please try again or contact staff.",
+  "ticket.open.tooFast": "You are opening tickets too quickly. Wait a few seconds and try again.",
+  "ticket.open.suspended": "Ticketing is disabled for this server. Please contact the server owner.",
   "ticket.welcome.defaultTitle": "Ticket #{ticket.number}",
   "ticket.welcome.defaultDescription": "Thanks for reaching out, {user.mention}. Staff have been notified and will be with you shortly.\nDescribe your issue in as much detail as you can.",
   "ticket.welcome.openedBy": "Opened by",
@@ -41,6 +43,10 @@
   "blacklist.added": "{user.tag} has been blocked from opening tickets.",
   "blacklist.removed": "{user.tag} can open tickets again.",
   "blacklist.notFound": "{user.tag} is not blocked.",
+  "snippet.notInTicket": "Use this inside an open ticket channel.",
+  "snippet.notFound": "There is no snippet named “{name}”.",
+  "snippet.empty": "That snippet has no text and no images.",
+  "snippet.sent": "Sent snippet “{name}”.",
   "common.staffOnly": "You do not have permission to do that.",
   "common.error": "Something went wrong. Please try again."
 }

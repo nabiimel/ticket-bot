@@ -57,8 +57,12 @@ npm run dev:bot        # bot only
 npm run deploy-commands  # register slash commands (auto-done for DEV_GUILD_ID)
 ```
 
-Set `DEV_GUILD_ID` in `.env` during development so slash commands register to
-that guild instantly (global registration can take up to an hour).
+On startup the bot **syncs global slash commands** whenever their definitions
+change (a hash is cached at `DATA_DIR/.commands-hash` to stay under Discord's
+daily global-command write limit). Set `DEV_GUILD_ID` in `.env` to *also*
+register to that one guild on every start — guild commands appear instantly,
+so you don't wait on the ~1h global propagation. `npm run deploy-commands`
+forces a global re-sync.
 
 ## Bot commands
 
@@ -158,13 +162,64 @@ CI (`.github/workflows/ci.yml`) runs all of the above plus the dashboard build.
 ```bash
 # .env at repo root with DISCORD_TOKEN, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET,
 # DISCORD_BOT_TOKEN, AUTH_SECRET, INTERNAL_WAKE_SECRET, NEXTAUTH_URL
-docker compose up -d   # bot + dashboard, shared data volume
+# optional: LOG_WEBHOOK_URL, BACKUP_S3_* (see .env.example)
+docker compose up -d   # bot + dashboard + autoheal + nightly backup
 ```
 
 Both processes run migrations on startup (concurrency-safe), so no separate
 migrate step is required — `docker compose run --rm migrate` still exists if you
 want to run them explicitly. The bot shuts down gracefully on `SIGTERM`
-(drains the job queue, closes the DB).
+(drains the job queue, flushes the error webhook, closes the DB).
+
+The compose stack also runs:
+
+- **`autoheal`** — restarts any container Docker marks `unhealthy`. The `bot`
+  healthcheck hits `:8787/health` (which returns 503 when the gateway is down);
+  the bot additionally self-exits if it stays disconnected for ~3 min so
+  `restart: unless-stopped` recycles it.
+- **`backup`** (`offen/docker-volume-backup`) — nightly `tar.gz` of the data
+  volume at 03:00, keeping 14 in the local `ticketbot-backups` volume. Set the
+  `BACKUP_S3_*` vars in `.env` to also push each archive to Cloudflare R2 /
+  DO Spaces / S3.
+- Container logs are capped at 5 × 10 MB per service (`x-logging` anchor). For a
+  daemon-wide cap that also covers Caddy, put `log-opts` in
+  `/etc/docker/daemon.json` instead.
+
+The bot writes an **hourly SQLite snapshot** to `DATA_DIR/snapshots/`
+(`db-YYYYMMDD-HH.db`, newest 48 kept) via the online-backup API — a consistent
+point-in-time copy even between nightly archives.
+
+### Restore from a nightly archive
+
+```bash
+docker compose down
+docker run --rm -v ticket-bot_ticketbot-data:/data -v ticket-bot_ticketbot-backups:/archive \
+  alpine sh -c "rm -rf /data/* && tar xzf /archive/<archive>.tar.gz -C / backup/ticketbot-data --strip-components=2"
+docker compose up -d
+```
+
+(The archive stores the volume under `backup/ticketbot-data/`.) To restore a
+single hourly snapshot instead, copy `snapshots/db-*.db` over
+`DATA_DIR/ticketbot.db` (and delete the `-wal` / `-shm` siblings) while the
+stack is down.
+
+### Error alerts
+
+Set `LOG_WEBHOOK_URL` to a Discord webhook (a private `#bot-logs` channel).
+Error-level log lines are batched and posted there (≤ 1 message / 10 s).
+
+### Suspending an abusive server
+
+```bash
+docker compose exec bot npm run guild --workspace @ticketbot/db -- list
+docker compose exec bot npm run guild --workspace @ticketbot/db -- suspend <guildId>
+docker compose exec bot npm run guild --workspace @ticketbot/db -- unsuspend <guildId>
+```
+
+A suspended guild can't open tickets, its queued jobs are dropped, scheduler
+sweeps skip it, and its dashboard becomes read-only with a banner. Per-user
+open cooldowns (20 s) and dashboard test-send cooldowns (15 s) apply to every
+guild regardless.
 
 ## Project status
 

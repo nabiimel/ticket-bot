@@ -38,6 +38,12 @@ export function referencedUploads(guildId: string): Set<string> {
   for (const panel of repos.panels.listPanels(db(), guildId)) {
     for (const f of embedFiles(panel.embed, guildId)) refs.add(f);
   }
+  for (const snip of repos.snippets.listSnippets(db(), guildId)) {
+    for (const url of snip.attachments) {
+      const m = url.match(PREFIX_RE);
+      if (m && m[1] === guildId) refs.add(m[2]!);
+    }
+  }
   return refs;
 }
 

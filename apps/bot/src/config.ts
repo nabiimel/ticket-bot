@@ -16,6 +16,12 @@ const schema = z.object({
   INTERNAL_PORT: z.coerce.number().int().positive().default(8787),
   INTERNAL_WAKE_SECRET: z.string().default(""),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  // Optional Discord webhook that receives batched error-level log lines.
+  LOG_WEBHOOK_URL: z
+    .string()
+    .url()
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
 });
 
 const parsed = schema.safeParse(process.env);

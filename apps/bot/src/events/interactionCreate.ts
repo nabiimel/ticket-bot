@@ -19,6 +19,12 @@ export async function execute(interaction: Interaction): Promise<void> {
       return;
     }
 
+    if (interaction.isAutocomplete()) {
+      const command = commandMap.get(interaction.commandName);
+      await command?.autocomplete?.(interaction);
+      return;
+    }
+
     if (interaction.isButton()) {
       const { prefix, args } = parseCustomId(interaction.customId);
       const handler = buttonHandlers.find((h) => h.prefix === prefix);

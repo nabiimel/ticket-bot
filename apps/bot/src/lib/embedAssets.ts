@@ -43,6 +43,22 @@ function localUpload(
   return existsSync(disk) ? { disk, name: parsed.file } : null;
 }
 
+/**
+ * Turn a list of `/u/<guildId>/<file>` dashboard-upload URLs into Discord
+ * attachments, skipping any whose file is missing on disk. Used to send snippet
+ * images. De-dupes by filename.
+ */
+export function resolveUploadFiles(urls: string[]): AttachmentBuilder[] {
+  const files: AttachmentBuilder[] = [];
+  for (const url of urls) {
+    const up = localUpload(url);
+    if (up && !files.some((f) => f.name === up.name)) {
+      files.push(new AttachmentBuilder(up.disk, { name: up.name }));
+    }
+  }
+  return files;
+}
+
 export interface EmbedWithAssets {
   embed: EmbedBuilder;
   /** Attachments that must be included in the same `send`/`edit` call. */

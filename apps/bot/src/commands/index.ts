@@ -5,6 +5,7 @@ import { ticketPanelCommand } from "./ticket-panel.js";
 import { ticketCommand } from "./ticket.js";
 import { ticketBlacklistCommand } from "./ticket-blacklist.js";
 import { ticketStatsCommand } from "./ticket-stats.js";
+import { snippetCommand } from "./snippet.js";
 
 export const commands: SlashCommand[] = [
   ticketSetupCommand,
@@ -13,6 +14,7 @@ export const commands: SlashCommand[] = [
   ticketCommand,
   ticketBlacklistCommand,
   ticketStatsCommand,
+  snippetCommand,
 ];
 
 export const commandMap = new Map(commands.map((c) => [c.data.name, c]));
