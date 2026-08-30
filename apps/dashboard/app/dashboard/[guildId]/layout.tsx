@@ -13,9 +13,6 @@ import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NavigationGuard } from "@/components/NavigationGuard";
 
-const SLA_UNCLAIMED_S = 30 * 60;
-const SLA_NO_REPLY_S = 60 * 60;
-
 export const dynamic = "force-dynamic";
 
 const NAV = [
@@ -53,12 +50,14 @@ export default async function GuildLayout({
   const panels = repos.panels.listPanels(db(), guildId);
   const openTickets = repos.tickets.listOpenTickets(db(), guildId);
   const nowS = Date.now() / 1000;
+  const slaUnclaimedS = cfg.slaUnclaimedMins * 60;
+  const slaNoReplyS = cfg.slaNoReplyMins * 60;
   const flaggedCount = openTickets.filter(
     (t) =>
       (cfg.claimingEnabled &&
         !t.claimedBy &&
-        nowS - t.createdAt > SLA_UNCLAIMED_S) ||
-      (!t.firstStaffMsgAt && nowS - t.createdAt > SLA_NO_REPLY_S),
+        nowS - t.createdAt > slaUnclaimedS) ||
+      (!t.firstStaffMsgAt && nowS - t.createdAt > slaNoReplyS),
   ).length;
   const overviewAlert =
     flaggedCount > 0 ||

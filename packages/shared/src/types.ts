@@ -73,6 +73,14 @@ export type CloseBehaviour = "delete" | "archive";
 export type PanelStyle = "buttons" | "dropdown";
 export type PanelStatus = "draft" | "published";
 export type TicketStatus = "open" | "claimed" | "closed";
+export type TicketPriority = "low" | "normal" | "high" | "urgent";
+
+export const TICKET_PRIORITIES: TicketPriority[] = [
+  "low",
+  "normal",
+  "high",
+  "urgent",
+];
 
 export interface GuildConfig {
   guildId: string;
@@ -93,6 +101,10 @@ export interface GuildConfig {
   transcriptRetentionDays: number;
   /** Show a Claim button and allow /ticket claim + /ticket transfer. */
   claimingEnabled: boolean;
+  /** Minutes an unclaimed ticket may sit before it's flagged. */
+  slaUnclaimedMins: number;
+  /** Minutes with no staff reply before a ticket is flagged. */
+  slaNoReplyMins: number;
   /** Host kill-switch: blocks ticket opening, jobs, sweeps and dashboard writes. */
   suspended: boolean;
 }
@@ -149,6 +161,12 @@ export interface PanelConfig {
   createdBy: string | null;
 }
 
+export interface PanelStatRow {
+  categoryId: number;
+  clicks: number;
+  opens: number;
+}
+
 export interface TicketRecord {
   id: number;
   guildId: string;
@@ -157,6 +175,9 @@ export interface TicketRecord {
   categoryId: number | null;
   openerId: string;
   status: TicketStatus;
+  priority: TicketPriority;
+  /** Free-form staff labels. */
+  tags: string[];
   subject: string | null;
   claimedBy: string | null;
   createdAt: number;

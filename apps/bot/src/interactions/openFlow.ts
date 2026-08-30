@@ -28,6 +28,17 @@ import { logger } from "../lib/logger.js";
  */
 const creating = new Set<string>();
 
+/**
+ * Which panel a user's in-progress open came from, keyed `guildId:userId`. Set
+ * when they click, read when the ticket is created so we can credit the panel
+ * with a conversion — the modal round-trip loses the panel id otherwise.
+ */
+const pendingPanel = new Map<
+  string,
+  { panelId: number; categoryId: number; at: number }
+>();
+const PENDING_TTL_MS = 5 * 60_000;
+
 type AnyInteraction =
   ButtonInteraction | StringSelectMenuInteraction | ModalSubmitInteraction;
 
@@ -50,6 +61,7 @@ function findCategory(
 export async function startOpen(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   categoryId: number,
+  panelId: number | null = null,
 ): Promise<void> {
   if (!interaction.inCachedGuild()) return;
   const guildId = interaction.guildId!;
@@ -69,6 +81,17 @@ export async function startOpen(
   if (!hit(`open:${guildId}:${interaction.user.id}`, 20_000)) {
     await ephemeral(interaction, t("ticket.open.tooFast", lang));
     return;
+  }
+
+  // Panel analytics: count the click and remember it for the conversion credit.
+  if (panelId != null) {
+    const key = `${guildId}:${interaction.user.id}`;
+    try {
+      repos.panelStats.bumpClick(getDb(), panelId, categoryId);
+    } catch {
+      /* stats are best-effort */
+    }
+    pendingPanel.set(key, { panelId, categoryId, at: Date.now() });
   }
 
   if (category.form.length > 0) {
@@ -210,6 +233,20 @@ export async function completeOpen(
     await interaction.editReply({
       content: t("ticket.open.created", lang, { channel: `<#${channel.id}>` }),
     });
+
+    // Panel analytics: credit the click that led here with a conversion.
+    const pend = pendingPanel.get(lockKey);
+    if (
+      pend &&
+      pend.categoryId === categoryId &&
+      Date.now() - pend.at < PENDING_TTL_MS
+    ) {
+      try {
+        repos.panelStats.bumpOpen(getDb(), pend.panelId, categoryId);
+      } catch {
+        /* best-effort */
+      }
+    }
   } catch (err) {
     logger.error("createTicket failed", err);
     await interaction.editReply({ content: t("ticket.open.failed", lang) });
@@ -222,5 +259,6 @@ export async function completeOpen(
     );
   } finally {
     creating.delete(lockKey);
+    pendingPanel.delete(lockKey);
   }
 }

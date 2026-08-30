@@ -210,6 +210,43 @@ export function GeneralForm({
       </section>
 
       <section className="space-y-5">
+        <h2 className="text-sm font-semibold text-dim">Response targets</h2>
+        <p className="-mt-3 text-xs text-faint">
+          A ticket past either target is flagged on the Overview, Tickets
+          console and in Notifications.
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Claim within (minutes)</label>
+            <input
+              type="number"
+              name="slaUnclaimedMins"
+              min={1}
+              max={1440}
+              defaultValue={cfg.slaUnclaimedMins}
+              className={inputCls(state, "slaUnclaimedMins")}
+            />
+            <p className="mt-1 text-xs text-faint">
+              Only counts while claiming is on.
+            </p>
+            <FieldError state={state} name="slaUnclaimedMins" />
+          </div>
+          <div>
+            <label className="label">First reply within (minutes)</label>
+            <input
+              type="number"
+              name="slaNoReplyMins"
+              min={1}
+              max={1440}
+              defaultValue={cfg.slaNoReplyMins}
+              className={inputCls(state, "slaNoReplyMins")}
+            />
+            <FieldError state={state} name="slaNoReplyMins" />
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-5">
         <h2 className="text-sm font-semibold text-dim">Retention</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>

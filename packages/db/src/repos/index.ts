@@ -3,6 +3,7 @@ export * as guildConfig from "./guildConfig.js";
 export * as categories from "./categories.js";
 export * as snippets from "./snippets.js";
 export * as panels from "./panels.js";
+export * as panelStats from "./panelStats.js";
 export * as tickets from "./tickets.js";
 export * as counter from "./counter.js";
 export * as blacklist from "./blacklist.js";

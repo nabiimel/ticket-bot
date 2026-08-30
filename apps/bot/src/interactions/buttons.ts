@@ -25,7 +25,13 @@ const openButton: ButtonHandler = {
   async run(interaction, args) {
     const categoryId = Number(args[0]);
     if (Number.isNaN(categoryId)) return;
-    await startOpen(interaction, categoryId);
+    // `open:<categoryId>:<panelId>` — panelId is absent on pre-analytics panels.
+    const panelId = args[1] ? Number(args[1]) : null;
+    await startOpen(
+      interaction,
+      categoryId,
+      Number.isNaN(panelId as number) ? null : panelId,
+    );
   },
 };
 

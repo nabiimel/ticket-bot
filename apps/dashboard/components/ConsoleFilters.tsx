@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { TICKET_PRIORITIES } from "@ticketbot/shared";
 
 const STATES = [
   ["all", "All"],
@@ -18,6 +19,7 @@ export function ConsoleFilters({
   const params = useSearchParams();
   const state = params.get("state") ?? "all";
   const cat = params.get("cat") ?? "";
+  const priority = params.get("priority") ?? "";
 
   const go = (next: Record<string, string>) => {
     const p = new URLSearchParams(params.toString());
@@ -60,6 +62,18 @@ export function ConsoleFilters({
           ))}
         </select>
       )}
+      <select
+        className="input max-w-[10rem] text-sm"
+        value={priority}
+        onChange={(e) => go({ priority: e.target.value })}
+      >
+        <option value="">Any priority</option>
+        {TICKET_PRIORITIES.map((p) => (
+          <option key={p} value={p}>
+            {p}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

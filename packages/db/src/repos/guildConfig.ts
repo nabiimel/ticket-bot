@@ -33,6 +33,8 @@ function map(r: any): GuildConfig {
     inactivityHours: r.inactivity_hours ?? 0,
     transcriptRetentionDays: r.transcript_retention_days ?? 0,
     claimingEnabled: r.claiming_enabled == null ? true : !!r.claiming_enabled,
+    slaUnclaimedMins: r.sla_unclaimed_mins ?? 30,
+    slaNoReplyMins: r.sla_no_reply_mins ?? 60,
     suspended: !!r.suspended,
   };
 }
@@ -55,6 +57,8 @@ function defaults(guildId: string): GuildConfig {
     inactivityHours: 0,
     transcriptRetentionDays: 0,
     claimingEnabled: true,
+    slaUnclaimedMins: 30,
+    slaNoReplyMins: 60,
     suspended: false,
   };
 }
@@ -91,6 +95,8 @@ const COLUMN_MAP: Record<string, string> = {
   inactivityHours: "inactivity_hours",
   transcriptRetentionDays: "transcript_retention_days",
   claimingEnabled: "claiming_enabled",
+  slaUnclaimedMins: "sla_unclaimed_mins",
+  slaNoReplyMins: "sla_no_reply_mins",
   suspended: "suspended",
 };
 

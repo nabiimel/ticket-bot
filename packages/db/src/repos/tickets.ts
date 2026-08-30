@@ -1,5 +1,19 @@
-import type { TicketRecord, TicketStatus } from "@ticketbot/shared";
+import type {
+  TicketPriority,
+  TicketRecord,
+  TicketStatus,
+} from "@ticketbot/shared";
 import type { DB } from "../index.js";
+
+function parseTags(json: unknown): string[] {
+  if (typeof json !== "string") return [];
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 export interface FormResponse {
   fieldKey: string;
@@ -16,6 +30,8 @@ function map(r: any): TicketRecord {
     categoryId: r.category_id,
     openerId: r.opener_id,
     status: r.status as TicketStatus,
+    priority: (r.priority ?? "normal") as TicketPriority,
+    tags: parseTags(r.tags),
     subject: r.subject,
     claimedBy: r.claimed_by,
     createdAt: r.created_at,
@@ -236,6 +252,29 @@ export function listRecentlyOpened(
 
 export function renameSubject(db: DB, id: number, subject: string): void {
   db.prepare(`UPDATE tickets SET subject = ? WHERE id = ?`).run(subject, id);
+}
+
+export function setPriority(
+  db: DB,
+  id: number,
+  priority: TicketPriority,
+): void {
+  db.prepare(`UPDATE tickets SET priority = ? WHERE id = ?`).run(priority, id);
+}
+
+/** Replace a ticket's tag list (deduped, trimmed, lowercased, capped at 10). */
+export function setTags(db: DB, id: number, tags: string[]): void {
+  const clean = [
+    ...new Set(
+      tags
+        .map((s) => s.trim().toLowerCase().slice(0, 30))
+        .filter((s) => s.length > 0),
+    ),
+  ].slice(0, 10);
+  db.prepare(`UPDATE tickets SET tags = ? WHERE id = ?`).run(
+    JSON.stringify(clean),
+    id,
+  );
 }
 
 /** Close a ticket whose channel no longer exists (no transcript possible). */

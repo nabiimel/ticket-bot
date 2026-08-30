@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import type { TicketRecord } from "@ticketbot/shared";
 import { fmtDuration } from "@/lib/format";
 import { StatusPill, ticketStatusKind } from "./StatusPill";
-
-const SLA_UNCLAIMED_S = 30 * 60;
-const SLA_NO_REPLY_S = 60 * 60;
+import { PriorityBadge, TagChips } from "./TicketMeta";
 
 /**
  * One row of the Overview "Open tickets" table. The age counts up and the SLA
@@ -19,12 +17,16 @@ export function OpenTicketRow({
   guildId,
   claiming,
   serverNow,
+  slaUnclaimedS,
+  slaNoReplyS,
 }: {
   t: TicketRecord;
   category: string;
   guildId: string;
   claiming: boolean;
   serverNow: number;
+  slaUnclaimedS: number;
+  slaNoReplyS: number;
 }) {
   const [now, setNow] = useState(serverNow);
   useEffect(() => {
@@ -34,28 +36,36 @@ export function OpenTicketRow({
   }, []);
 
   const age = now - t.createdAt;
-  const staleUnclaimed = claiming && !t.claimedBy && age > SLA_UNCLAIMED_S;
-  const noReply = !t.firstStaffMsgAt && age > SLA_NO_REPLY_S;
+  const staleUnclaimed = claiming && !t.claimedBy && age > slaUnclaimedS;
+  const noReply = !t.firstStaffMsgAt && age > slaNoReplyS;
   const flagged = staleUnclaimed || noReply;
 
   return (
     <tr>
       <td className="py-2 pr-3 font-medium tabular-nums">
-        #{t.number}
-        {flagged && (
-          <span
-            className="ml-1.5 text-warn"
-            title={
-              staleUnclaimed
-                ? "Unclaimed for over 30 min"
-                : "No staff reply in over an hour"
-            }
-          >
-            ▲
-          </span>
-        )}
+        <span className="inline-flex items-center gap-1.5">
+          #{t.number}
+          {flagged && (
+            <span
+              className="text-warn"
+              title={
+                staleUnclaimed
+                  ? "Unclaimed past target"
+                  : "No staff reply past target"
+              }
+            >
+              ▲
+            </span>
+          )}
+          <PriorityBadge priority={t.priority} />
+        </span>
       </td>
-      <td className="py-2 pr-3 text-dim">{category}</td>
+      <td className="py-2 pr-3 text-dim">
+        <div className="flex flex-col gap-1">
+          <span>{category}</span>
+          <TagChips tags={t.tags} />
+        </div>
+      </td>
       <td className="py-2 pr-3">
         <StatusPill
           kind={ticketStatusKind({

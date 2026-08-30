@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   SUPPORTED_LANGUAGES,
+  TICKET_PRIORITIES,
   isSupportedLanguage,
   isValidEmoji,
   type ButtonConfig,
   type EmbedConfig,
   type FormField,
   type PanelStyle,
+  type TicketPriority,
 } from "@ticketbot/shared";
 import { requireGuildAccess } from "@/lib/guild-access";
 import { db, repos } from "@/lib/db";
@@ -103,6 +105,17 @@ export async function saveGeneral(
       "Enter a whole number of days from 0 to 3650";
   }
 
+  const slaUnclaimedMins = Number(str("slaUnclaimedMins") ?? 30);
+  const slaNoReplyMins = Number(str("slaNoReplyMins") ?? 60);
+  for (const [k, v] of [
+    ["slaUnclaimedMins", slaUnclaimedMins],
+    ["slaNoReplyMins", slaNoReplyMins],
+  ] as const) {
+    if (!Number.isInteger(v) || v < 1 || v > 1440) {
+      fieldErrors[k] = "Enter a whole number of minutes from 1 to 1440";
+    }
+  }
+
   const closeBehaviour =
     str("closeBehaviour") === "archive" ? "archive" : "delete";
   const archiveCategoryId = str("archiveCategoryId");
@@ -139,6 +152,8 @@ export async function saveGeneral(
     claimingEnabled: form.get("claimingEnabled") === "on",
     inactivityHours,
     transcriptRetentionDays,
+    slaUnclaimedMins,
+    slaNoReplyMins,
   };
   const GEN_LABELS: Record<string, string> = {
     logChannelId: "log channel",
@@ -153,6 +168,8 @@ export async function saveGeneral(
     claimingEnabled: "claiming",
     inactivityHours: "auto-close",
     transcriptRetentionDays: "transcript retention",
+    slaUnclaimedMins: "unclaimed target",
+    slaNoReplyMins: "first-reply target",
   };
   const genChanged = Object.keys(next)
     .filter(
@@ -432,6 +449,31 @@ export async function deletePanel(guildId: string, panelId: number) {
 // ---------------------------------------------------------------------------
 // Open tickets (live console)
 // ---------------------------------------------------------------------------
+
+export async function setTicketPriority(
+  guildId: string,
+  ticketId: number,
+  priority: string,
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  if (!TICKET_PRIORITIES.includes(priority as TicketPriority)) {
+    return { ok: false, error: "Invalid priority" };
+  }
+  const tk = repos.tickets.getTicket(db(), ticketId);
+  if (!tk || tk.guildId !== guildId || tk.status === "closed") {
+    return { ok: false, error: "Ticket not found or already closed" };
+  }
+  repos.tickets.setPriority(db(), ticketId, priority as TicketPriority);
+  audit(
+    guildId,
+    userId,
+    "ticket.priority",
+    `Set ticket #${tk.number} priority to ${priority}`,
+  );
+  rev(guildId);
+  return { ok: true };
+}
 
 export async function claimTicketAdmin(guildId: string, ticketId: number) {
   const { userId } = await requireGuildAccess(guildId);

@@ -113,7 +113,7 @@ export function buildPanelComponents(
       };
       const label = render(bc.label || c.label, c) || c.label;
       const btn = new ButtonBuilder()
-        .setCustomId(`open:${c.id}`)
+        .setCustomId(`open:${c.id}:${panel.id}`)
         .setLabel(label.slice(0, 80))
         .setStyle(BUTTON_STYLE[bc.style] ?? ButtonStyle.Primary)
         .setDisabled(c.disabled);

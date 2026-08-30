@@ -4,7 +4,7 @@ import {
   SlashCommandBuilder,
   type GuildTextBasedChannel,
 } from "discord.js";
-import { t } from "@ticketbot/shared";
+import { t, TICKET_PRIORITIES } from "@ticketbot/shared";
 import { repos } from "@ticketbot/db";
 import type { SlashCommand } from "../registry.js";
 import { getDb } from "../lib/db.js";
@@ -43,6 +43,30 @@ const data = new SlashCommandBuilder()
       .setDescription("Rename this ticket channel")
       .addStringOption((o) =>
         o.setName("name").setDescription("New channel name").setRequired(true),
+      ),
+  )
+  .addSubcommand((s) =>
+    s
+      .setName("priority")
+      .setDescription("Set this ticket's priority")
+      .addStringOption((o) =>
+        o
+          .setName("level")
+          .setDescription("Priority level")
+          .setRequired(true)
+          .addChoices(...TICKET_PRIORITIES.map((p) => ({ name: p, value: p }))),
+      ),
+  )
+  .addSubcommand((s) =>
+    s
+      .setName("tag")
+      .setDescription("Add or remove a label on this ticket (toggles)")
+      .addStringOption((o) =>
+        o
+          .setName("name")
+          .setDescription("Label, e.g. billing")
+          .setRequired(true)
+          .setMaxLength(30),
       ),
   )
   .addSubcommand((s) => s.setName("claim").setDescription("Claim this ticket"))
@@ -141,6 +165,47 @@ export const ticketCommand: SlashCommand = {
       repos.tickets.renameSubject(db, ticket.id, name);
       await interaction.reply({
         content: t("ticket.rename.done", lang, { name }),
+      });
+      return;
+    }
+
+    if (sub === "priority" || sub === "tag") {
+      if (!staff) {
+        await interaction.reply({
+          content: t("common.staffOnly", lang),
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+      if (sub === "priority") {
+        const level = interaction.options.getString(
+          "level",
+          true,
+        ) as (typeof TICKET_PRIORITIES)[number];
+        repos.tickets.setPriority(db, ticket.id, level);
+        await interaction.reply({
+          content: t("ticket.priority.done", lang, {
+            priority: level,
+            "user.mention": `<@${interaction.user.id}>`,
+          }),
+        });
+        return;
+      }
+      // tag — toggle
+      const name = interaction.options
+        .getString("name", true)
+        .trim()
+        .toLowerCase()
+        .slice(0, 30);
+      const had = ticket.tags.includes(name);
+      const next = had
+        ? ticket.tags.filter((x) => x !== name)
+        : [...ticket.tags, name];
+      repos.tickets.setTags(db, ticket.id, next);
+      await interaction.reply({
+        content: t(had ? "ticket.tag.removed" : "ticket.tag.added", lang, {
+          tag: name,
+        }),
       });
       return;
     }

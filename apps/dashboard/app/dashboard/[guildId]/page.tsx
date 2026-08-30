@@ -243,6 +243,8 @@ export default async function Overview({
                     guildId={guildId}
                     claiming={claiming}
                     serverNow={serverNow}
+                    slaUnclaimedS={cfg.slaUnclaimedMins * 60}
+                    slaNoReplyS={cfg.slaNoReplyMins * 60}
                   />
                 ))}
               </tbody>

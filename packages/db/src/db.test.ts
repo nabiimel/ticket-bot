@@ -23,6 +23,7 @@ describe("migrations", () => {
       "006_snippets",
       "007_category_disabled",
       "008_notification_reads",
+      "009_priority_tags_sla_panelstats",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
@@ -73,6 +74,39 @@ describe("tickets repo", () => {
     expect(after.closeReason).toBe("gone");
     expect(repos.tickets.countOpenByUser(db, "g1", "u1")).toBe(0);
   });
+
+  it("defaults priority to normal and no tags, then round-trips both", () => {
+    const t = repos.tickets.createTicket(db, {
+      guildId: "g1",
+      number: 1,
+      channelId: "c1",
+      categoryId: null,
+      openerId: "u1",
+    });
+    expect(t.priority).toBe("normal");
+    expect(t.tags).toEqual([]);
+
+    repos.tickets.setPriority(db, t.id, "urgent");
+    repos.tickets.setTags(db, t.id, ["  Billing ", "billing", "vip"]);
+    const after = repos.tickets.getTicket(db, t.id)!;
+    expect(after.priority).toBe("urgent");
+    expect(after.tags).toEqual(["billing", "vip"]); // trimmed, lowercased, deduped
+  });
+});
+
+describe("panelStats repo", () => {
+  it("increments clicks and opens per (panel, category)", () => {
+    const db = freshDb();
+    repos.panelStats.bumpClick(db, 1, 10);
+    repos.panelStats.bumpClick(db, 1, 10);
+    repos.panelStats.bumpOpen(db, 1, 10);
+    repos.panelStats.bumpClick(db, 1, 11);
+    const rows = repos.panelStats.getPanelStats(db, 1);
+    expect(rows).toEqual([
+      { categoryId: 10, clicks: 2, opens: 1 },
+      { categoryId: 11, clicks: 1, opens: 0 },
+    ]);
+  });
 });
 
 describe("guildConfig repo", () => {
@@ -90,6 +124,16 @@ describe("guildConfig repo", () => {
     expect(cfg.closeBehaviour).toBe("delete");
     expect(cfg.claimingEnabled).toBe(true); // default
     expect(cfg.suspended).toBe(false); // default
+    expect(cfg.slaUnclaimedMins).toBe(30); // default
+    expect(cfg.slaNoReplyMins).toBe(60); // default
+
+    repos.guildConfig.updateGuildConfig(db, "g1", {
+      slaUnclaimedMins: 15,
+      slaNoReplyMins: 45,
+    });
+    const cfg2 = repos.guildConfig.getGuildConfig(db, "g1");
+    expect(cfg2.slaUnclaimedMins).toBe(15);
+    expect(cfg2.slaNoReplyMins).toBe(45);
 
     repos.guildConfig.updateGuildConfig(db, "g1", { claimingEnabled: false });
     expect(repos.guildConfig.getGuildConfig(db, "g1").claimingEnabled).toBe(

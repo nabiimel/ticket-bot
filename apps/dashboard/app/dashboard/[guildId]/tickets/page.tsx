@@ -1,3 +1,4 @@
+import { TICKET_PRIORITIES, type TicketPriority } from "@ticketbot/shared";
 import { db, repos } from "@/lib/db";
 import { getGuildMemberNames, nameOf } from "@/lib/discord";
 import { PageHeader } from "@/components/PageHeader";
@@ -7,15 +8,19 @@ import { ConsoleTicketRow } from "@/components/ConsoleTicketRow";
 
 export const dynamic = "force-dynamic";
 
-const SLA_UNCLAIMED_S = 30 * 60;
-const SLA_NO_REPLY_S = 60 * 60;
+const PRIO_RANK: Record<TicketPriority, number> = {
+  urgent: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
+};
 
 export default async function TicketsConsole({
   params,
   searchParams,
 }: {
   params: { guildId: string };
-  searchParams: { state?: string; cat?: string };
+  searchParams: { state?: string; cat?: string; priority?: string };
 }) {
   const { guildId } = params;
   const cfg = repos.guildConfig.getGuildConfig(db(), guildId);
@@ -23,26 +28,37 @@ export default async function TicketsConsole({
   const names = await getGuildMemberNames(guildId);
   const claiming = cfg.claimingEnabled;
   const serverNow = Date.now() / 1000;
+  const slaUnclaimedS = cfg.slaUnclaimedMins * 60;
+  const slaNoReplyS = cfg.slaNoReplyMins * 60;
 
   const catLabel = (id: number | null) =>
     (id != null && categories.find((c) => c.id === id)?.label) ||
     "Uncategorized";
 
+  // Urgent first, then by age within a priority.
   let tickets = [...repos.tickets.listOpenTickets(db(), guildId)].sort(
-    (a, b) => a.createdAt - b.createdAt,
+    (a, b) =>
+      PRIO_RANK[a.priority] - PRIO_RANK[b.priority] ||
+      a.createdAt - b.createdAt,
   );
 
   const state = searchParams.state ?? "all";
   const catFilter = Number(searchParams.cat) || null;
+  const prioFilter = TICKET_PRIORITIES.includes(
+    searchParams.priority as TicketPriority,
+  )
+    ? (searchParams.priority as TicketPriority)
+    : null;
   if (catFilter) tickets = tickets.filter((t) => t.categoryId === catFilter);
+  if (prioFilter) tickets = tickets.filter((t) => t.priority === prioFilter);
   if (state === "unclaimed") tickets = tickets.filter((t) => !t.claimedBy);
   else if (state === "claimed") tickets = tickets.filter((t) => t.claimedBy);
   else if (state === "flagged")
     tickets = tickets.filter((t) => {
       const age = serverNow - t.createdAt;
       return (
-        (claiming && !t.claimedBy && age > SLA_UNCLAIMED_S) ||
-        (!t.firstStaffMsgAt && age > SLA_NO_REPLY_S)
+        (claiming && !t.claimedBy && age > slaUnclaimedS) ||
+        (!t.firstStaffMsgAt && age > slaNoReplyS)
       );
     });
 
@@ -61,7 +77,7 @@ export default async function TicketsConsole({
         <EmptyState
           title="Nothing here"
           description={
-            state === "all"
+            state === "all" && !catFilter && !prioFilter
               ? "No open tickets right now."
               : "No open tickets match this filter."
           }
@@ -74,6 +90,7 @@ export default async function TicketsConsole({
                 <th className="pb-2 pr-3 font-medium">Ticket</th>
                 <th className="pb-2 pr-3 font-medium">Type</th>
                 <th className="pb-2 pr-3 font-medium">Opener</th>
+                <th className="pb-2 pr-3 font-medium">Priority</th>
                 <th className="pb-2 pr-3 font-medium">Status</th>
                 <th className="pb-2 pr-3 text-right font-medium">Age</th>
                 <th className="pb-2 text-right font-medium">Actions</th>
@@ -89,6 +106,8 @@ export default async function TicketsConsole({
                   guildId={guildId}
                   claiming={claiming}
                   serverNow={serverNow}
+                  slaUnclaimedS={slaUnclaimedS}
+                  slaNoReplyS={slaNoReplyS}
                 />
               ))}
             </tbody>

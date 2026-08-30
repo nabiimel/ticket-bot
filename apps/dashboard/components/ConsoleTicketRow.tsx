@@ -1,18 +1,17 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import type { TicketRecord } from "@ticketbot/shared";
+import { TICKET_PRIORITIES, type TicketRecord } from "@ticketbot/shared";
 import { fmtDuration } from "@/lib/format";
 import {
   claimTicketAdmin,
   closeTicketAdmin,
+  setTicketPriority,
 } from "@/app/dashboard/[guildId]/actions";
 import { useToast } from "./Toast";
 import { useConfirm } from "./ConfirmDialog";
 import { StatusPill, ticketStatusKind } from "./StatusPill";
-
-const SLA_UNCLAIMED_S = 30 * 60;
-const SLA_NO_REPLY_S = 60 * 60;
+import { TagChips } from "./TicketMeta";
 
 export function ConsoleTicketRow({
   t,
@@ -21,6 +20,8 @@ export function ConsoleTicketRow({
   guildId,
   claiming,
   serverNow,
+  slaUnclaimedS,
+  slaNoReplyS,
 }: {
   t: TicketRecord;
   category: string;
@@ -28,12 +29,15 @@ export function ConsoleTicketRow({
   guildId: string;
   claiming: boolean;
   serverNow: number;
+  slaUnclaimedS: number;
+  slaNoReplyS: number;
 }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [pending, start] = useTransition();
   const [now, setNow] = useState(serverNow);
   const [claimed, setClaimed] = useState(!!t.claimedBy);
+  const [priority, setPriority] = useState(t.priority);
   const [gone, setGone] = useState(false);
 
   useEffect(() => {
@@ -45,8 +49,8 @@ export function ConsoleTicketRow({
   if (gone) return null;
 
   const age = now - t.createdAt;
-  const staleUnclaimed = claiming && !claimed && age > SLA_UNCLAIMED_S;
-  const noReply = !t.firstStaffMsgAt && age > SLA_NO_REPLY_S;
+  const staleUnclaimed = claiming && !claimed && age > slaUnclaimedS;
+  const noReply = !t.firstStaffMsgAt && age > slaNoReplyS;
   const flagged = staleUnclaimed || noReply;
 
   const claim = () =>
@@ -57,6 +61,19 @@ export function ConsoleTicketRow({
         toast.success(`Claimed #${t.number}`);
       } else toast.error(res.error ?? "Couldn't claim");
     });
+
+  const changePriority = (next: string) => {
+    const prev = priority;
+    setPriority(next as typeof priority);
+    start(async () => {
+      const res = await setTicketPriority(guildId, t.id, next);
+      if (res.ok) toast.success(`#${t.number} → ${next}`);
+      else {
+        setPriority(prev);
+        toast.error(res.error ?? "Couldn't set priority");
+      }
+    });
+  };
 
   const close = async () => {
     const ok = await confirm({
@@ -85,16 +102,36 @@ export function ConsoleTicketRow({
             className="ml-1.5 text-warn"
             title={
               staleUnclaimed
-                ? "Unclaimed for over 30 min"
-                : "No staff reply in over an hour"
+                ? "Unclaimed past target"
+                : "No staff reply past target"
             }
           >
             ▲
           </span>
         )}
       </td>
-      <td className="py-2 pr-3 text-dim">{category}</td>
+      <td className="py-2 pr-3 text-dim">
+        <div className="flex flex-col gap-1">
+          <span>{category}</span>
+          <TagChips tags={t.tags} />
+        </div>
+      </td>
       <td className="max-w-[10rem] truncate py-2 pr-3 text-dim">{opener}</td>
+      <td className="py-2 pr-3">
+        <select
+          value={priority}
+          disabled={pending}
+          onChange={(e) => changePriority(e.target.value)}
+          className="rounded-md border border-line bg-surface px-1.5 py-0.5 text-xs"
+          aria-label={`Priority for ticket #${t.number}`}
+        >
+          {TICKET_PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      </td>
       <td className="py-2 pr-3">
         <StatusPill
           kind={ticketStatusKind({

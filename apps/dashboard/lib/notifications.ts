@@ -11,8 +11,6 @@ import { fmtDuration } from "./format";
  * against a per-user "seen up to here" marker for the unread badge.
  */
 
-export const SLA_UNCLAIMED_S = 30 * 60;
-export const SLA_NO_REPLY_S = 60 * 60;
 export const LOW_RATING_AT_OR_BELOW = 2;
 
 export interface NotificationFeed {
@@ -34,13 +32,15 @@ export function getNotificationFeed(
     (id != null && cats.find((c) => c.id === id)?.label) || "Uncategorized";
   const nowS = Math.floor(Date.now() / 1000);
   const age = (from: number) => fmtDuration(nowS - from);
+  const slaUnclaimedS = cfg.slaUnclaimedMins * 60;
+  const slaNoReplyS = cfg.slaNoReplyMins * 60;
 
   const items: FeedNotification[] = [];
 
   // --- SLA: still-open tickets past a threshold ---
   for (const t of repos.tickets.listOpenTickets(d, guildId)) {
     if (cfg.claimingEnabled && !t.claimedBy) {
-      const at = t.createdAt + SLA_UNCLAIMED_S;
+      const at = t.createdAt + slaUnclaimedS;
       if (at <= nowS) {
         items.push({
           key: `sla_unclaimed:${t.id}`,
@@ -54,7 +54,7 @@ export function getNotificationFeed(
       }
     }
     if (!t.firstStaffMsgAt) {
-      const at = t.createdAt + SLA_NO_REPLY_S;
+      const at = t.createdAt + slaNoReplyS;
       if (at <= nowS) {
         items.push({
           key: `sla_no_reply:${t.id}`,
