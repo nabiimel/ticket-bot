@@ -27,3 +27,6 @@ Thumbs.db
 
 # claude code local
 .claude/
+
+# build artifacts
+*.tsbuildinfo

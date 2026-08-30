@@ -25,7 +25,20 @@ const schema = z.object({
 });
 
 const parsed = schema.safeParse(process.env);
-if (!parsed.success) {
+
+let data: z.infer<typeof schema>;
+if (parsed.success) {
+  data = parsed.data;
+} else if (process.env.VITEST) {
+  // Some unit tests import modules (e.g. lib/deploy.ts) that transitively load
+  // this config but never talk to Discord. Use inert placeholders rather than
+  // aborting the whole test run.
+  data = schema.parse({
+    DISCORD_TOKEN: "test",
+    DISCORD_CLIENT_ID: "test",
+    ...process.env,
+  });
+} else {
   console.error("Invalid environment configuration:");
   for (const issue of parsed.error.issues) {
     console.error(`  ${issue.path.join(".")}: ${issue.message}`);
@@ -34,8 +47,8 @@ if (!parsed.success) {
 }
 
 export const config = {
-  ...parsed.data,
-  devGuildId: parsed.data.DEV_GUILD_ID || null,
+  ...data,
+  devGuildId: data.DEV_GUILD_ID || null,
 };
 
 export type Config = typeof config;
