@@ -28,13 +28,38 @@ export default async function Overview({
     (id != null && categories.find((c) => c.id === id)?.label) ||
     "Uncategorized";
 
-  const setup: string[] = [];
-  if (!cfg.logChannelId) setup.push("Set a log channel in General");
-  if (!cfg.transcriptChannelId)
-    setup.push("Set a transcript channel in General");
-  if (categories.length === 0) setup.push("Create a ticket category");
-  if (panels.filter((p) => p.status === "published").length === 0)
-    setup.push("Publish a panel");
+  // Ordered first-run checklist. All steps are always shown until every one is
+  // done, so a new admin can see how far along they are.
+  const setupSteps = [
+    {
+      done:
+        !!cfg.defaultStaffRoleId ||
+        categories.some((c) => c.staffRoleIds.length > 0),
+      label: "Give staff a role that can see tickets",
+      href: `/dashboard/${guildId}/general`,
+    },
+    {
+      done: !!cfg.logChannelId,
+      label: "Choose a log channel",
+      href: `/dashboard/${guildId}/general`,
+    },
+    {
+      done: categories.length > 0,
+      label: "Create a ticket category",
+      href: `/dashboard/${guildId}/categories`,
+    },
+    {
+      done: panels.length > 0,
+      label: "Build a panel",
+      href: `/dashboard/${guildId}/panels`,
+    },
+    {
+      done: panels.some((p) => p.status === "published" && p.channelId),
+      label: "Publish the panel to a channel",
+      href: `/dashboard/${guildId}/panels`,
+    },
+  ];
+  const setupDone = setupSteps.filter((s) => s.done).length;
 
   const claiming = cfg.claimingEnabled;
   const serverNow = Date.now() / 1000;
@@ -151,19 +176,39 @@ export default async function Overview({
         </div>
       )}
 
-      {setup.length > 0 && (
+      {setupDone < setupSteps.length && (
         <div className="note note-warn">
-          <h2 className="mb-2 flex items-center gap-2 font-semibold">
+          <h2 className="mb-3 flex items-center gap-2 font-semibold">
             <span className="grid h-5 w-5 place-items-center rounded-full bg-[var(--warn-border)] text-xs">
               !
             </span>
             Finish setting up
+            <span className="text-xs font-normal opacity-70">
+              {setupDone}/{setupSteps.length} done
+            </span>
           </h2>
-          <ul className="ml-7 list-disc space-y-1 text-sm opacity-90">
-            {setup.map((n) => (
-              <li key={n}>{n}</li>
+          <ol className="space-y-1.5 text-sm">
+            {setupSteps.map((s, i) => (
+              <li key={i} className="flex items-start gap-2.5">
+                <span
+                  className={`mt-px shrink-0 ${s.done ? "" : "opacity-60"}`}
+                  aria-hidden
+                >
+                  {s.done ? "✓" : `${i + 1}.`}
+                </span>
+                {s.done ? (
+                  <span className="opacity-60 line-through">{s.label}</span>
+                ) : (
+                  <Link
+                    href={s.href}
+                    className="underline-offset-2 hover:underline"
+                  >
+                    {s.label}
+                  </Link>
+                )}
+              </li>
             ))}
-          </ul>
+          </ol>
         </div>
       )}
 

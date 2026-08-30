@@ -11,6 +11,7 @@ import type { SlashCommand } from "../registry.js";
 import { assertManageGuild } from "../lib/permissions.js";
 import { getDb } from "../lib/db.js";
 import { bustConfigCache } from "../lib/configCache.js";
+import { diagnoseGuild, formatDiagnosis } from "../lib/diagnose.js";
 
 const data = new SlashCommandBuilder()
   .setName("ticket-setup")
@@ -19,6 +20,9 @@ const data = new SlashCommandBuilder()
   .setDMPermission(false)
   .addSubcommand((s) =>
     s.setName("view").setDescription("Show the current configuration"),
+  )
+  .addSubcommand((s) =>
+    s.setName("check").setDescription("Diagnose common setup problems"),
   )
   .addSubcommand((s) =>
     s
@@ -104,6 +108,28 @@ export const ticketSetupCommand: SlashCommand = {
     const db = getDb();
     const guildId = interaction.guildId;
     const sub = interaction.options.getSubcommand();
+
+    if (sub === "check") {
+      const lines = diagnoseGuild(db, interaction.guild);
+      const errors = lines.filter((l) => l.level === "error").length;
+      const warns = lines.filter((l) => l.level === "warn").length;
+      const embed = new EmbedBuilder()
+        .setTitle("Ticket setup check")
+        .setColor(errors ? 0xed4245 : warns ? 0xf0a04b : 0x3ba55d)
+        .setDescription(formatDiagnosis(lines))
+        .setFooter({
+          text: errors
+            ? `${errors} problem(s) to fix`
+            : warns
+              ? `${warns} thing(s) worth a look`
+              : "No problems found",
+        });
+      await interaction.reply({
+        embeds: [embed],
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
 
     if (sub === "view") {
       const c = repos.guildConfig.ensureGuildConfig(db, guildId);

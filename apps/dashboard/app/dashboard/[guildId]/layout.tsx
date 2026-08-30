@@ -11,6 +11,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { ToastProvider } from "@/components/Toast";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NavigationGuard } from "@/components/NavigationGuard";
 
 const SLA_UNCLAIMED_S = 30 * 60;
 const SLA_NO_REPLY_S = 60 * 60;
@@ -103,6 +104,7 @@ export default async function GuildLayout({
 
   return (
     <div className="relative z-10 min-h-screen">
+      <NavigationGuard />
       <header className="sticky top-0 z-20 border-b border-line bg-[var(--bg-glass)] backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">

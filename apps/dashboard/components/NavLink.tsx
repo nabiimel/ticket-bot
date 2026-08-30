@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { confirmDiscardIfDirty } from "@/lib/dirty-store";
 
 export function NavLink({
   href,
@@ -26,9 +25,6 @@ export function NavLink({
   return (
     <Link
       href={href}
-      onClick={(e) => {
-        if (!confirmDiscardIfDirty()) e.preventDefault();
-      }}
       className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
         active
           ? "bg-[var(--accent-soft)] font-semibold text-white"

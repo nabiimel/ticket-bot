@@ -1,5 +1,6 @@
 import {
   ChannelType,
+  PermissionFlagsBits,
   type Client,
   type GuildTextBasedChannel,
   type TextChannel,
@@ -59,6 +60,21 @@ async function handleRepostOrEdit(
   const components = buildPanelComponents(panel, categories, guild.name);
   const channel = await textChannel(client, panel.guildId, panel.channelId);
   if (!channel) throw new Error("panel has no valid target channel");
+
+  const perms = guild.members.me
+    ? channel.permissionsFor(guild.members.me)
+    : null;
+  if (
+    !perms?.has([
+      PermissionFlagsBits.ViewChannel,
+      PermissionFlagsBits.SendMessages,
+      PermissionFlagsBits.EmbedLinks,
+    ])
+  ) {
+    throw new Error(
+      `Missing View Channel / Send Messages / Embed Links permission in #${channel.name} — grant the bot access to that channel.`,
+    );
+  }
 
   // Try to edit the existing message; fall back to posting a new one if it was
   // deleted, moved, or is only in the client cache.

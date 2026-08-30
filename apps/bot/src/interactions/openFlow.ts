@@ -18,7 +18,15 @@ import {
 import { buildContext } from "../lib/context.js";
 import { createTicket, type FormAnswer } from "../lib/ticketManager.js";
 import { hit } from "../lib/cooldown.js";
+import { alertAdmins, preflightTicketCreate } from "../lib/preflight.js";
 import { logger } from "../lib/logger.js";
+
+/**
+ * Users currently mid-creation, keyed by `guildId:userId`. A time-based cooldown
+ * can't stop a fast double-click from racing two channels into existence before
+ * the first ticket row lands; this can.
+ */
+const creating = new Set<string>();
 
 type AnyInteraction =
   ButtonInteraction | StringSelectMenuInteraction | ModalSubmitInteraction;
@@ -164,6 +172,32 @@ export async function completeOpen(
     return;
   }
 
+  // One creation at a time per user — blocks the double-click channel race.
+  const lockKey = `${guildId}:${interaction.user.id}`;
+  if (creating.has(lockKey)) {
+    await interaction.editReply({
+      content: t("ticket.open.inProgress", lang),
+    });
+    return;
+  }
+
+  // Catch config/capacity problems before Discord throws, and tell staff.
+  const pre = preflightTicketCreate(interaction.guild!, category);
+  if (!pre.ok) {
+    await interaction.editReply({
+      content: t(pre.userKey ?? "ticket.open.failed", lang),
+    });
+    if (pre.adminMessage) {
+      void alertAdmins(
+        interaction.guild!,
+        guildConfig,
+        `Ticket open blocked for <@${interaction.user.id}> (“${category.label}”): ${pre.adminMessage}`,
+      );
+    }
+    return;
+  }
+
+  creating.add(lockKey);
   try {
     const member = await interaction.guild!.members.fetch(interaction.user.id);
     const { channel } = await createTicket({
@@ -179,5 +213,14 @@ export async function completeOpen(
   } catch (err) {
     logger.error("createTicket failed", err);
     await interaction.editReply({ content: t("ticket.open.failed", lang) });
+    void alertAdmins(
+      interaction.guild!,
+      guildConfig,
+      `A ticket failed to open for <@${interaction.user.id}> (“${category.label}”): \`${String(
+        err,
+      ).slice(0, 300)}\``,
+    );
+  } finally {
+    creating.delete(lockKey);
   }
 }
