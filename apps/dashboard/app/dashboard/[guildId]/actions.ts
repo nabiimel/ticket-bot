@@ -715,3 +715,11 @@ export async function refreshDiscordCaches(guildId: string) {
   rev(guildId);
   return { ok: true };
 }
+
+/** Move this user's notification "seen up to here" marker to now. */
+export async function markNotificationsRead(guildId: string) {
+  const { userId } = await requireGuildAccess(guildId);
+  repos.notifications.markAllRead(db(), guildId, userId);
+  rev(guildId);
+  return { ok: true };
+}

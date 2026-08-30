@@ -5,6 +5,7 @@ import { migration as m004 } from "./004_category_naming.js";
 import { migration as m005 } from "./005_suspend.js";
 import { migration as m006 } from "./006_snippets.js";
 import { migration as m007 } from "./007_category_disabled.js";
+import { migration as m008 } from "./008_notification_reads.js";
 
 export interface Migration {
   name: string;
@@ -20,4 +21,5 @@ export const MIGRATIONS: Migration[] = [
   m005,
   m006,
   m007,
+  m008,
 ];

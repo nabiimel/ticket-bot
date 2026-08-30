@@ -3,9 +3,11 @@ import { cookies } from "next/headers";
 import { auth, signOut } from "@/auth";
 import { requireGuildAccess } from "@/lib/guild-access";
 import { db, repos } from "@/lib/db";
+import { getNotificationFeed } from "@/lib/notifications";
 import { Icon } from "@/components/icons";
 import { SideNav, type NavItem } from "@/components/SideNav";
 import { MobileNav } from "@/components/MobileNav";
+import { NotificationBell } from "@/components/NotificationBell";
 import { ToastProvider } from "@/components/Toast";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -18,6 +20,7 @@ export const dynamic = "force-dynamic";
 const NAV = [
   { href: "", label: "Overview", icon: Icon.overview },
   { href: "/tickets", label: "Tickets", icon: Icon.tickets },
+  { href: "/notifications", label: "Notifications", icon: Icon.bell },
   { href: "/general", label: "General", icon: Icon.general },
   { href: "/categories", label: "Categories", icon: Icon.categories },
   { href: "/panels", label: "Panels", icon: Icon.panels },
@@ -78,6 +81,10 @@ export default async function GuildLayout({
       : `https://cdn.discordapp.com/icons/${params.guildId}/${guild.icon}.png?size=64`;
   const initials = (guild?.name ?? "S").slice(0, 2).toUpperCase();
 
+  const notif = me?.discordId
+    ? getNotificationFeed(guildId, me.discordId, 30)
+    : { items: [], unread: 0, lastSeen: 0 };
+
   const navItems: NavItem[] = NAV.map((item) => ({
     href: `/dashboard/${guildId}${item.href}`,
     label: item.label,
@@ -89,7 +96,9 @@ export default async function GuildLayout({
         ? newTranscripts
         : item.href === "/tickets"
           ? flaggedCount
-          : undefined,
+          : item.href === "/notifications"
+            ? notif.unread
+            : undefined,
   }));
 
   return (
@@ -135,6 +144,11 @@ export default async function GuildLayout({
                 </span>
               </div>
             )}
+            <NotificationBell
+              guildId={guildId}
+              items={notif.items}
+              unread={notif.unread}
+            />
             <ThemeToggle />
             <form
               action={async () => {

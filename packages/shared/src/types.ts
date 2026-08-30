@@ -187,6 +187,34 @@ export interface RatingRecord {
 }
 
 // ---------------------------------------------------------------------------
+// Dashboard notification centre (derived on read; not persisted)
+// ---------------------------------------------------------------------------
+
+export type NotificationType =
+  | "sla_unclaimed"
+  | "sla_no_reply"
+  | "low_rating"
+  | "job_failed"
+  | "config_changed"
+  | "ticket_opened"
+  | "ticket_closed";
+
+export type NotificationSeverity = "info" | "warn" | "critical";
+
+export interface FeedNotification {
+  /** Stable synthetic key, e.g. `sla_unclaimed:42`. Lets the UI dedupe/react. */
+  key: string;
+  type: NotificationType;
+  severity: NotificationSeverity;
+  title: string;
+  body?: string;
+  /** Unix seconds — when it happened (the breach moment for SLA items). */
+  at: number;
+  /** Dashboard-relative link, e.g. `/dashboard/<id>/tickets`. */
+  href?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Jobs (dashboard -> bot outbox)
 // ---------------------------------------------------------------------------
 

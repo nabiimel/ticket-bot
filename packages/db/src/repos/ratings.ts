@@ -44,3 +44,19 @@ export function getRating(db: DB, ticketId: number): RatingRecord | null {
     .get(ticketId);
   return row ? map(row) : null;
 }
+
+/** Recent low-scoring ratings for the dashboard notification feed. */
+export function listLowRatings(
+  db: DB,
+  guildId: string,
+  atOrBelow: number,
+  limit = 20,
+): RatingRecord[] {
+  return db
+    .prepare(
+      `SELECT * FROM ratings WHERE guild_id = ? AND score <= ?
+       ORDER BY created_at DESC LIMIT ?`,
+    )
+    .all(guildId, atOrBelow, limit)
+    .map(map);
+}

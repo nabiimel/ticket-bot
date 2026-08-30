@@ -10,3 +10,4 @@ export * as ratings from "./ratings.js";
 export * as jobs from "./jobs.js";
 export * as stats from "./stats.js";
 export * as audit from "./audit.js";
+export * as notifications from "./notifications.js";

@@ -22,6 +22,7 @@ describe("migrations", () => {
       "005_suspend",
       "006_snippets",
       "007_category_disabled",
+      "008_notification_reads",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
@@ -221,6 +222,27 @@ describe("audit repo", () => {
     });
     const rows = repos.audit.listAudit(db, "g1");
     expect(rows.map((r) => r.action)).toEqual(["a.two", "a.one"]);
+  });
+});
+
+describe("notifications repo", () => {
+  it("tracks a per-user last-seen marker", () => {
+    const db = freshDb();
+    expect(repos.notifications.getLastSeen(db, "g1", "u1")).toBe(0);
+
+    repos.notifications.markAllRead(db, "g1", "u1", 1000);
+    expect(repos.notifications.getLastSeen(db, "g1", "u1")).toBe(1000);
+
+    // never moves backwards
+    repos.notifications.markAllRead(db, "g1", "u1", 500);
+    expect(repos.notifications.getLastSeen(db, "g1", "u1")).toBe(1000);
+
+    repos.notifications.markAllRead(db, "g1", "u1", 2000);
+    expect(repos.notifications.getLastSeen(db, "g1", "u1")).toBe(2000);
+
+    // isolated per guild + user
+    expect(repos.notifications.getLastSeen(db, "g1", "u2")).toBe(0);
+    expect(repos.notifications.getLastSeen(db, "g2", "u1")).toBe(0);
   });
 });
 
