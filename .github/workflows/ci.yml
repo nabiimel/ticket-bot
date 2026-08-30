@@ -72,7 +72,8 @@ jobs:
 
   # Optional hands-off deploy. Enable by setting repo variable AUTO_DEPLOY=true and
   # secrets DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY. Otherwise deploy manually:
-  #   ssh <droplet> 'cd ~/ticket-bot && git pull && docker compose pull && docker compose up -d'
+  #   ssh <droplet> 'cd ~/ticket-bot && git pull && docker compose pull \
+  #     && docker compose --profile tools run --rm migrate && docker compose up -d'
   deploy:
     needs: publish
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AUTO_DEPLOY == 'true'
@@ -85,7 +86,10 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
+            set -e
             cd ~/ticket-bot
             git pull --ff-only
             docker compose pull
+            docker compose --profile tools run --rm migrate
             docker compose up -d
+            docker compose ps
