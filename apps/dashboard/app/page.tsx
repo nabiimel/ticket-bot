@@ -70,7 +70,7 @@ export default async function LandingPage({
           </p>
 
           {searchParams.error === "session-expired" && (
-            <p className="mt-5 rounded-lg bg-amber-500/15 px-4 py-2 text-sm text-amber-300">
+            <p className="note note-warn mt-5">
               Your session expired — please sign in again.
             </p>
           )}

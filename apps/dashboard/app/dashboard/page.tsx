@@ -88,19 +88,19 @@ export default async function GuildPicker({
       </div>
 
       {searchParams.error === "no-access" && (
-        <p className="mb-4 rounded-md bg-discord-red/20 px-4 py-2 text-sm text-red-300">
+        <p className="note note-danger mb-4">
           You don&apos;t have Manage Server permission on that guild.
         </p>
       )}
       {(searchParams.error === "discord-unavailable" || discordDown) && (
-        <p className="mb-4 rounded-md bg-amber-500/20 px-4 py-2 text-sm text-amber-200">
+        <p className="note note-warn mb-4">
           Couldn&apos;t reach Discord to check your servers (it may be
           rate-limiting). Wait a minute and refresh — you haven&apos;t lost
           access.
         </p>
       )}
       {searchParams.error === "bot-not-in-guild" && (
-        <p className="mb-4 rounded-md bg-amber-500/20 px-4 py-2 text-sm text-amber-200">
+        <p className="note note-warn mb-4">
           The bot isn&apos;t in that server yet. Add it first.
         </p>
       )}

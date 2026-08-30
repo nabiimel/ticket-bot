@@ -17,14 +17,20 @@ export function Relative({
   initial: string;
 }) {
   const [text, setText] = useState(initial);
+  const [title, setTitle] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const compute = () =>
       setText(ago ? fmtAgo(unix) : fmtDuration(Date.now() / 1000 - unix));
     compute();
+    setTitle(new Date(unix * 1000).toLocaleString());
     const id = setInterval(compute, 30_000);
     return () => clearInterval(id);
   }, [unix, ago]);
 
-  return <>{text}</>;
+  return (
+    <span title={title} suppressHydrationWarning>
+      {text}
+    </span>
+  );
 }

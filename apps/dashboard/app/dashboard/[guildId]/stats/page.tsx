@@ -160,7 +160,7 @@ export default async function StatsPage({
           <h2 className="mb-3 text-sm font-semibold">
             Rating distribution
             {lowRatings > 0 && (
-              <span className="ml-2 text-xs font-normal text-amber-400">
+              <span className="ml-2 text-xs font-normal text-warn">
                 {lowRatings} low (≤2)
               </span>
             )}
@@ -222,11 +222,7 @@ export default async function StatsPage({
             {extras.comments.map((c) => (
               <li key={c.ticketId} className="text-sm">
                 <div className="flex items-center gap-2 text-xs text-faint">
-                  <span
-                    className={
-                      c.score <= 2 ? "text-[var(--danger)]" : "text-amber-400"
-                    }
-                  >
+                  <span className={c.score <= 2 ? "text-danger" : "text-warn"}>
                     {"★".repeat(c.score)}
                   </span>
                   <Link

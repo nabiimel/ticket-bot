@@ -150,7 +150,7 @@ export function PanelEditor({
         <div className="card">
           <EmbedEditor value={embed} onChange={setEmbed} guildId={guildId} />
         </div>
-        <div className="space-y-3">
+        <div className="space-y-3 lg:sticky lg:top-20 lg:self-start">
           <div className="text-xs font-semibold uppercase text-faint">
             Live preview
           </div>

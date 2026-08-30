@@ -10,8 +10,8 @@ import { Relative } from "./Relative";
 import { EmptyState } from "./EmptyState";
 
 const DOT: Record<string, string> = {
-  critical: "bg-[var(--danger)]",
-  warn: "bg-amber-400",
+  critical: "bg-danger",
+  warn: "bg-warn",
   info: "bg-accent",
 };
 

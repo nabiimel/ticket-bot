@@ -19,11 +19,7 @@ export function SnippetCreateForm({ guildId }: { guildId: string }) {
         <label className="label">Shortcut</label>
         <input
           name="name"
-          className={
-            state?.fieldErrors?.name
-              ? "input border-red-500 focus:border-red-500"
-              : "input"
-          }
+          className={state?.fieldErrors?.name ? "input input-invalid" : "input"}
           placeholder="refund-policy"
         />
         <FieldError state={state} name="name" />

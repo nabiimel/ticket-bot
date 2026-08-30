@@ -23,11 +23,7 @@ function Count({ n, max }: { n: number; max: number }) {
   return (
     <p
       className={`mt-1 text-right text-[11px] ${
-        pct >= 1
-          ? "text-discord-red"
-          : pct > 0.9
-            ? "text-amber-400"
-            : "text-faint"
+        pct >= 1 ? "text-discord-red" : pct > 0.9 ? "text-warn" : "text-faint"
       }`}
     >
       {n}/{max}

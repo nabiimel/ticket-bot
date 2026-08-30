@@ -176,7 +176,7 @@ export default async function GuildLayout({
         </aside>
         <main className="min-w-0 flex-1 pb-16">
           {suspended && (
-            <div className="mb-6 rounded-xl border border-[rgba(237,66,69,.4)] bg-[rgba(237,66,69,.14)] px-4 py-3 text-sm text-red-200">
+            <div className="note note-danger mb-6">
               <strong className="font-semibold">
                 This server is suspended.
               </strong>{" "}

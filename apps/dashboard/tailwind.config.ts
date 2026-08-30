@@ -21,6 +21,9 @@ export default {
         dim: "var(--text-dim)",
         faint: "var(--text-faint)",
         accent: "var(--accent)",
+        success: "var(--success)",
+        warn: "var(--warn)",
+        danger: "var(--danger)",
       },
       borderColor: {
         DEFAULT: "var(--border)",

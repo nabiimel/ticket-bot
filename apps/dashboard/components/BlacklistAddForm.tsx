@@ -30,9 +30,7 @@ export function BlacklistAddForm({ guildId }: { guildId: string }) {
         <input
           name="userId"
           className={
-            state?.fieldErrors?.userId
-              ? "input border-red-500 focus:border-red-500"
-              : "input"
+            state?.fieldErrors?.userId ? "input input-invalid" : "input"
           }
           placeholder="123456789012345678"
         />

@@ -118,13 +118,13 @@ export default async function Overview({
       </p>
 
       {issues.length > 0 ? (
-        <div className="card border-[rgba(237,66,69,.35)] bg-[rgba(237,66,69,.05)]">
-          <h2 className="mb-2 flex items-center gap-2 font-semibold text-red-300">
-            <span className="grid h-5 w-5 place-items-center rounded-full bg-red-500/20 text-xs">
+        <div className="note note-danger">
+          <h2 className="mb-2 flex items-center gap-2 font-semibold">
+            <span className="grid h-5 w-5 place-items-center rounded-full bg-[var(--danger-border)] text-xs">
               !
             </span>
             Needs attention
-            <span className="text-xs font-normal text-faint">
+            <span className="text-xs font-normal opacity-70">
               {issues.filter((i) => i.level === "error").length} error(s) ·{" "}
               {issues.filter((i) => i.level === "warn").length} warning(s)
             </span>
@@ -132,16 +132,13 @@ export default async function Overview({
           <ul className="space-y-1.5 text-sm">
             {issues.map((i, n) => (
               <li key={n} className="flex items-start gap-2">
-                <span
-                  className={
-                    i.level === "error"
-                      ? "mt-0.5 text-red-400"
-                      : "mt-0.5 text-amber-400"
-                  }
-                >
+                <span className="mt-0.5">
                   {i.level === "error" ? "✕" : "▲"}
                 </span>
-                <Link href={i.href} className="text-dim hover:text-ink">
+                <Link
+                  href={i.href}
+                  className="underline-offset-2 hover:underline"
+                >
                   {i.message}
                 </Link>
               </li>
@@ -149,20 +146,20 @@ export default async function Overview({
           </ul>
         </div>
       ) : (
-        <div className="card border-[rgba(59,165,93,.3)] bg-[rgba(59,165,93,.05)] text-sm text-emerald-300">
+        <div className="note note-success text-sm">
           ✓ No configuration problems found.
         </div>
       )}
 
       {setup.length > 0 && (
-        <div className="card border-amber-500/30 bg-amber-500/[0.04]">
-          <h2 className="mb-2 flex items-center gap-2 font-semibold text-amber-200">
-            <span className="grid h-5 w-5 place-items-center rounded-full bg-amber-500/20 text-xs">
+        <div className="note note-warn">
+          <h2 className="mb-2 flex items-center gap-2 font-semibold">
+            <span className="grid h-5 w-5 place-items-center rounded-full bg-[var(--warn-border)] text-xs">
               !
             </span>
             Finish setting up
           </h2>
-          <ul className="ml-7 list-disc space-y-1 text-sm text-amber-100/80">
+          <ul className="ml-7 list-disc space-y-1 text-sm opacity-90">
             {setup.map((n) => (
               <li key={n}>{n}</li>
             ))}
@@ -188,8 +185,8 @@ export default async function Overview({
                   <th className="pb-2 pr-3 font-medium">Ticket</th>
                   <th className="pb-2 pr-3 font-medium">Type</th>
                   <th className="pb-2 pr-3 font-medium">Status</th>
-                  <th className="pb-2 pr-3 font-medium">Age</th>
-                  <th className="pb-2 font-medium"></th>
+                  <th className="pb-2 pr-3 text-right font-medium">Age</th>
+                  <th className="pb-2 text-right font-medium"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">

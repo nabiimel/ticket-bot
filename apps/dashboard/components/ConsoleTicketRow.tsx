@@ -9,6 +9,7 @@ import {
 } from "@/app/dashboard/[guildId]/actions";
 import { useToast } from "./Toast";
 import { useConfirm } from "./ConfirmDialog";
+import { StatusPill, ticketStatusKind } from "./StatusPill";
 
 const SLA_UNCLAIMED_S = 30 * 60;
 const SLA_NO_REPLY_S = 60 * 60;
@@ -77,11 +78,11 @@ export function ConsoleTicketRow({
 
   return (
     <tr className={pending ? "opacity-50" : ""}>
-      <td className="py-2 pr-3">
+      <td className="py-2 pr-3 font-medium tabular-nums">
         #{t.number}
         {flagged && (
           <span
-            className="ml-1.5 text-amber-400"
+            className="ml-1.5 text-warn"
             title={
               staleUnclaimed
                 ? "Unclaimed for over 30 min"
@@ -95,19 +96,21 @@ export function ConsoleTicketRow({
       <td className="py-2 pr-3 text-dim">{category}</td>
       <td className="max-w-[10rem] truncate py-2 pr-3 text-dim">{opener}</td>
       <td className="py-2 pr-3">
-        {claiming ? (
-          claimed ? (
-            <span className="badge">claimed</span>
-          ) : (
-            <span className="badge badge-amber">unclaimed</span>
-          )
-        ) : t.firstStaffMsgAt ? (
-          <span className="badge">in progress</span>
-        ) : (
-          <span className="badge badge-amber">awaiting reply</span>
-        )}
+        <StatusPill
+          kind={ticketStatusKind({
+            claiming,
+            claimed,
+            hasStaffReply: !!t.firstStaffMsgAt,
+          })}
+        />
       </td>
-      <td className="py-2 pr-3 tabular-nums text-dim">{fmtDuration(age)}</td>
+      <td
+        className="py-2 pr-3 text-right tabular-nums text-dim"
+        title={new Date(t.createdAt * 1000).toLocaleString()}
+        suppressHydrationWarning
+      >
+        {fmtDuration(age)}
+      </td>
       <td className="py-2">
         <div className="flex items-center justify-end gap-2">
           <a

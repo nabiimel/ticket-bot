@@ -14,9 +14,7 @@ import { useUnsavedChanges } from "@/lib/dirty-store";
 type Opt = { id: string; name: string };
 
 function inputCls(state: FormState, name: string): string {
-  return state?.fieldErrors?.[name]
-    ? "input border-red-500 focus:border-red-500"
-    : "input";
+  return state?.fieldErrors?.[name] ? "input input-invalid" : "input";
 }
 
 export function GeneralForm({

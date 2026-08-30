@@ -19,11 +19,7 @@ export function CategoryCreateForm({ guildId }: { guildId: string }) {
         <label className="label">Reference ID</label>
         <input
           name="key"
-          className={
-            state?.fieldErrors?.key
-              ? "input border-red-500 focus:border-red-500"
-              : "input"
-          }
+          className={state?.fieldErrors?.key ? "input input-invalid" : "input"}
           placeholder="support"
         />
         <FieldError state={state} name="key" />
@@ -33,9 +29,7 @@ export function CategoryCreateForm({ guildId }: { guildId: string }) {
         <input
           name="label"
           className={
-            state?.fieldErrors?.label
-              ? "input border-red-500 focus:border-red-500"
-              : "input"
+            state?.fieldErrors?.label ? "input input-invalid" : "input"
           }
           placeholder="Support"
         />

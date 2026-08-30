@@ -140,7 +140,7 @@ export function CategoryEditor({
     <div className="space-y-6">
       <div
         className={`card ${
-          c.disabled ? "border-amber-500/40 bg-amber-500/[0.06]" : ""
+          c.disabled ? "border-[var(--warn-border)] bg-[var(--warn-soft)]" : ""
         }`}
       >
         <label className="flex items-center gap-2 text-sm font-semibold">
@@ -196,7 +196,7 @@ export function CategoryEditor({
         <div>
           <label className="label">Button emoji</label>
           <input
-            className={emojiError ? "input border-red-500" : "input"}
+            className={emojiError ? "input input-invalid" : "input"}
             value={c.emoji ?? ""}
             placeholder="🎫 or <:name:id>"
             onChange={(e) => {
@@ -220,7 +220,7 @@ export function CategoryEditor({
             ))}
           </div>
           {emojiError && (
-            <p className="mt-1 text-xs text-red-400">{emojiError}</p>
+            <p className="mt-1 text-xs text-danger">{emojiError}</p>
           )}
         </div>
         <div>
@@ -406,7 +406,7 @@ export function CategoryEditor({
               guildId={guildId}
               extraPlaceholders={formPlaceholders}
             />
-            <div>
+            <div className="lg:sticky lg:top-20 lg:self-start">
               <div className="mb-2 text-xs font-semibold uppercase text-faint">
                 Preview
               </div>

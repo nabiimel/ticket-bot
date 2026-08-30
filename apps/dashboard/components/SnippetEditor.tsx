@@ -137,7 +137,7 @@ export function SnippetEditor({
               content.length >= 2000
                 ? "text-discord-red"
                 : content.length > 1800
-                  ? "text-amber-400"
+                  ? "text-warn"
                   : "text-faint"
             }`}
           >

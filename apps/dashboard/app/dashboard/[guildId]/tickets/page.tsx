@@ -75,7 +75,7 @@ export default async function TicketsConsole({
                 <th className="pb-2 pr-3 font-medium">Type</th>
                 <th className="pb-2 pr-3 font-medium">Opener</th>
                 <th className="pb-2 pr-3 font-medium">Status</th>
-                <th className="pb-2 pr-3 font-medium">Age</th>
+                <th className="pb-2 pr-3 text-right font-medium">Age</th>
                 <th className="pb-2 text-right font-medium">Actions</th>
               </tr>
             </thead>

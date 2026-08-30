@@ -20,7 +20,17 @@
   --accent-hover: #4a56e6;
   --accent-soft: rgba(88, 101, 242, 0.1);
   --success: #2f9e4f;
+  --success-text: #1c7d3e;
+  --success-soft: rgba(47, 158, 79, 0.12);
+  --success-border: rgba(47, 158, 79, 0.32);
+  --warn: #c77700;
+  --warn-text: #8a5300;
+  --warn-soft: rgba(199, 119, 0, 0.12);
+  --warn-border: rgba(199, 119, 0, 0.32);
   --danger: #d83c3f;
+  --danger-text: #b52d30;
+  --danger-soft: rgba(216, 60, 63, 0.1);
+  --danger-border: rgba(216, 60, 63, 0.3);
   --ring: 0 0 0 3px rgba(88, 101, 242, 0.28);
   --glow-1: rgba(88, 101, 242, 0.06);
   --glow-2: rgba(88, 101, 242, 0.04);
@@ -44,7 +54,17 @@
     --text-faint: #6b7280;
     --accent-soft: rgba(88, 101, 242, 0.14);
     --success: #3ba55d;
+    --success-text: #5fd18a;
+    --success-soft: rgba(59, 165, 93, 0.15);
+    --success-border: rgba(59, 165, 93, 0.4);
+    --warn: #f0a04b;
+    --warn-text: #f5b461;
+    --warn-soft: rgba(240, 160, 75, 0.15);
+    --warn-border: rgba(240, 160, 75, 0.38);
     --danger: #ed4245;
+    --danger-text: #f4777a;
+    --danger-soft: rgba(237, 66, 69, 0.15);
+    --danger-border: rgba(237, 66, 69, 0.4);
     --ring: 0 0 0 3px rgba(88, 101, 242, 0.3);
     --glow-1: rgba(88, 101, 242, 0.08);
     --glow-2: rgba(88, 101, 242, 0.05);
@@ -69,7 +89,17 @@
   --text-faint: #6b7280;
   --accent-soft: rgba(88, 101, 242, 0.14);
   --success: #3ba55d;
+  --success-text: #5fd18a;
+  --success-soft: rgba(59, 165, 93, 0.15);
+  --success-border: rgba(59, 165, 93, 0.4);
+  --warn: #f0a04b;
+  --warn-text: #f5b461;
+  --warn-soft: rgba(240, 160, 75, 0.15);
+  --warn-border: rgba(240, 160, 75, 0.38);
   --danger: #ed4245;
+  --danger-text: #f4777a;
+  --danger-soft: rgba(237, 66, 69, 0.15);
+  --danger-border: rgba(237, 66, 69, 0.4);
   --ring: 0 0 0 3px rgba(88, 101, 242, 0.3);
   --glow-1: rgba(88, 101, 242, 0.08);
   --glow-2: rgba(88, 101, 242, 0.05);
@@ -271,12 +301,70 @@
     color: var(--text-dim);
   }
   .badge-green {
-    background: rgba(59, 165, 93, 0.16);
-    color: #57d98a;
+    background: var(--success-soft);
+    color: var(--success-text);
   }
   .badge-amber {
-    background: rgba(245, 176, 66, 0.16);
-    color: #f5b042;
+    background: var(--warn-soft);
+    color: var(--warn-text);
+  }
+  .badge-red {
+    background: var(--danger-soft);
+    color: var(--danger-text);
+  }
+
+  /* Status pill with a leading dot (dot inherits `color`). */
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium;
+    background: var(--surface-3);
+    color: var(--text-dim);
+  }
+  .pill-dot {
+    @apply h-1.5 w-1.5 shrink-0 rounded-full;
+    background: currentColor;
+  }
+  .pill-warn {
+    background: var(--warn-soft);
+    color: var(--warn-text);
+  }
+  .pill-success {
+    background: var(--success-soft);
+    color: var(--success-text);
+  }
+  .pill-danger {
+    background: var(--danger-soft);
+    color: var(--danger-text);
+  }
+
+  /* Inline callout / banner. Pair `.note` with a variant. */
+  .note {
+    @apply rounded-lg border px-4 py-3 text-sm;
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+  }
+  .note-success {
+    background: var(--success-soft);
+    border-color: var(--success-border);
+    color: var(--success-text);
+  }
+  .note-warn {
+    background: var(--warn-soft);
+    border-color: var(--warn-border);
+    color: var(--warn-text);
+  }
+  .note-danger {
+    background: var(--danger-soft);
+    border-color: var(--danger-border);
+    color: var(--danger-text);
+  }
+
+  .input-invalid {
+    border-color: var(--danger) !important;
+  }
+  .input-invalid:focus,
+  .input-invalid:focus-visible {
+    box-shadow: 0 0 0 3px var(--danger-soft) !important;
   }
 
   .divide-row > * + * {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { TicketRecord } from "@ticketbot/shared";
 import { fmtDuration } from "@/lib/format";
+import { StatusPill, ticketStatusKind } from "./StatusPill";
 
 const SLA_UNCLAIMED_S = 30 * 60;
 const SLA_NO_REPLY_S = 60 * 60;
@@ -39,11 +40,11 @@ export function OpenTicketRow({
 
   return (
     <tr>
-      <td className="py-2 pr-3">
+      <td className="py-2 pr-3 font-medium tabular-nums">
         #{t.number}
         {flagged && (
           <span
-            className="ml-1.5 text-amber-400"
+            className="ml-1.5 text-warn"
             title={
               staleUnclaimed
                 ? "Unclaimed for over 30 min"
@@ -56,20 +57,22 @@ export function OpenTicketRow({
       </td>
       <td className="py-2 pr-3 text-dim">{category}</td>
       <td className="py-2 pr-3">
-        {claiming ? (
-          t.claimedBy ? (
-            <span className="badge">claimed</span>
-          ) : (
-            <span className="badge badge-amber">unclaimed</span>
-          )
-        ) : t.firstStaffMsgAt ? (
-          <span className="badge">in progress</span>
-        ) : (
-          <span className="badge badge-amber">awaiting reply</span>
-        )}
+        <StatusPill
+          kind={ticketStatusKind({
+            claiming,
+            claimed: !!t.claimedBy,
+            hasStaffReply: !!t.firstStaffMsgAt,
+          })}
+        />
       </td>
-      <td className="py-2 pr-3 tabular-nums text-dim">{fmtDuration(age)}</td>
-      <td className="py-2">
+      <td
+        className="py-2 pr-3 text-right tabular-nums text-dim"
+        title={new Date(t.createdAt * 1000).toLocaleString()}
+        suppressHydrationWarning
+      >
+        {fmtDuration(age)}
+      </td>
+      <td className="py-2 text-right">
         <a
           className="text-xs text-accent hover:underline"
           href={`https://discord.com/channels/${guildId}/${t.channelId}`}

@@ -61,9 +61,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 style={{ animation: "toast-in .18s ease-out" }}
                 className={`pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-card backdrop-blur ${
                   t.kind === "success"
-                    ? "border-[rgba(59,165,93,.4)] bg-[rgba(59,165,93,.16)] text-emerald-200"
+                    ? "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-text)]"
                     : t.kind === "error"
-                      ? "border-[rgba(237,66,69,.4)] bg-[rgba(237,66,69,.16)] text-red-200"
+                      ? "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger-text)]"
                       : "border-line bg-surface text-ink"
                 }`}
               >

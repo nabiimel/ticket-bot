@@ -71,7 +71,7 @@ export function Combobox({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`input flex items-center justify-between text-left ${
-          invalid ? "border-red-500" : ""
+          invalid ? "input-invalid" : ""
         }`}
       >
         <span className={selected ? "" : "text-faint"}>

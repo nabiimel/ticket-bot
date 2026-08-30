@@ -10,8 +10,8 @@ import { Icon } from "./icons";
 import { Relative } from "./Relative";
 
 const DOT: Record<string, string> = {
-  critical: "bg-[var(--danger)]",
-  warn: "bg-amber-400",
+  critical: "bg-danger",
+  warn: "bg-warn",
   info: "bg-accent",
 };
 
