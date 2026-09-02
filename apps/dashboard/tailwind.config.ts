@@ -28,8 +28,15 @@ export default {
       borderColor: {
         DEFAULT: "var(--border)",
       },
+      borderRadius: {
+        field: "var(--r-md)",
+        card: "var(--r-lg)",
+        pop: "var(--r-xl)",
+      },
       boxShadow: {
+        sm: "var(--shadow-sm)",
         card: "var(--shadow-card)",
+        pop: "var(--shadow-pop)",
       },
     },
   },

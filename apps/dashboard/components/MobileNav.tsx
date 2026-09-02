@@ -55,7 +55,7 @@ export function MobileNav({ items }: { items: NavItem[] }) {
               className="absolute inset-0 bg-black/50"
               onClick={() => setOpen(false)}
             />
-            <div className="absolute inset-y-0 left-0 w-64 overflow-y-auto border-r border-line bg-surface p-4 shadow-card">
+            <div className="absolute inset-y-0 left-0 w-64 overflow-y-auto rounded-r-card border-r border-line bg-surface p-4 shadow-pop">
               <div className="mb-3 flex justify-end">
                 <button
                   type="button"

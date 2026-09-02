@@ -59,7 +59,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 key={t.id}
                 role="status"
                 style={{ animation: "toast-in .18s ease-out" }}
-                className={`pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-card backdrop-blur ${
+                className={`pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-card border px-4 py-3 text-sm shadow-pop backdrop-blur ${
                   t.kind === "success"
                     ? "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success-text)]"
                     : t.kind === "error"

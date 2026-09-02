@@ -25,18 +25,23 @@ export function NavLink({
   return (
     <Link
       href={href}
-      className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+      aria-current={active ? "page" : undefined}
+      className={`group flex items-center gap-3 rounded-full px-3.5 py-2.5 text-sm transition-colors ${
         active
-          ? "bg-[var(--accent-soft)] font-semibold text-white"
+          ? "bg-[var(--accent-soft)] font-semibold text-accent"
           : "text-dim hover:bg-surface-2 hover:text-ink"
       }`}
     >
       <span
-        className={active ? "text-accent" : "text-faint group-hover:text-dim"}
+        className={
+          active
+            ? "text-accent"
+            : "text-faint transition-colors group-hover:text-dim"
+        }
       >
         {icon}
       </span>
-      <span className="flex-1">{children}</span>
+      <span className="flex-1 truncate">{children}</span>
       {badge != null && badge > 0 && (
         <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
           {badge > 99 ? "99+" : badge}

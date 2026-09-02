@@ -143,16 +143,19 @@ export default async function GuildLayout({
   return (
     <div className="relative z-10 min-h-screen">
       <NavigationGuard />
-      <header className="sticky top-0 z-20 border-b border-line bg-[var(--bg-glass)] backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+      <header className="sticky top-0 z-20 border-b border-line bg-[var(--bg-glass)] shadow-sm backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
             <MobileNav items={navItems} />
-            <Link href="/dashboard" className="btn-ghost !px-2 !py-1 text-xs">
+            <Link
+              href="/dashboard"
+              className="btn-ghost !rounded-full !px-3 !py-1.5 text-xs"
+            >
               ← Servers
             </Link>
-            <div className="h-5 w-px bg-line" />
+            <div className="h-6 w-px bg-line" />
             <div className="flex min-w-0 items-center gap-2.5">
-              <div className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 text-[11px] font-bold text-dim">
+              <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 text-[11px] font-bold text-dim ring-1 ring-line">
                 {iconUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={iconUrl} alt="" className="h-full w-full" />
@@ -165,13 +168,13 @@ export default async function GuildLayout({
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             {me && (
               <div
-                className="flex items-center gap-2"
+                className="hidden items-center gap-2 rounded-full bg-surface-2 py-1 pl-1 pr-3 sm:flex"
                 title={`Signed in as ${me.name ?? "you"}`}
               >
-                <div className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-2 text-[10px] font-bold text-dim">
+                <div className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-3 text-[10px] font-bold text-dim">
                   {me.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={me.image} alt="" className="h-full w-full" />
@@ -179,7 +182,7 @@ export default async function GuildLayout({
                     (me.name ?? "?").slice(0, 1).toUpperCase()
                   )}
                 </div>
-                <span className="hidden max-w-[10rem] truncate text-xs text-dim sm:block">
+                <span className="max-w-[9rem] truncate text-xs text-dim">
                   {me.name}
                 </span>
               </div>
@@ -197,7 +200,7 @@ export default async function GuildLayout({
               }}
             >
               <button
-                className="btn-ghost text-xs"
+                className="btn-ghost !rounded-full text-xs"
                 type="submit"
                 title="Not you? Sign out"
               >
@@ -208,9 +211,9 @@ export default async function GuildLayout({
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-6xl gap-8 px-4 py-8 sm:px-6">
+      <div className="mx-auto flex max-w-6xl gap-9 px-4 py-9 sm:px-6">
         <aside className="hidden w-56 shrink-0 lg:block">
-          <div className="sticky top-20">
+          <div className="sticky top-[4.75rem] rounded-card border border-line bg-surface p-2 shadow-sm">
             <SideNav items={navItems} />
           </div>
         </aside>

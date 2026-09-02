@@ -82,7 +82,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               onClick={() => settle(false)}
             />
             <div
-              className="relative w-full max-w-sm rounded-xl border border-line bg-surface p-5 shadow-card"
+              className="relative w-full max-w-sm rounded-card border border-line bg-surface p-6 shadow-pop"
               style={{ animation: "toast-in .16s ease-out" }}
             >
               <h2 className="text-base font-semibold">{pending.title}</h2>

@@ -11,7 +11,7 @@ export type NavItem = {
 
 export function SideNav({ items }: { items: NavItem[] }) {
   return (
-    <nav className="space-y-0.5">
+    <nav className="space-y-1">
       {items.map((it) => (
         <NavLink
           key={it.href}
