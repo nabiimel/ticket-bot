@@ -446,6 +446,48 @@ export async function deletePanel(guildId: string, panelId: number) {
   return { ok: true };
 }
 
+/**
+ * Replace one panel's ordered category list — used by the board view for
+ * assign / unassign / reorder. Re-posts the panel if it's already live.
+ */
+export async function setPanelCategorySet(
+  guildId: string,
+  panelId: number,
+  categoryIds: number[],
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const panel = repos.panels.getPanel(db(), panelId);
+  if (!panel || panel.guildId !== guildId) {
+    return { ok: false, error: "Not found" };
+  }
+
+  const valid = new Set(
+    repos.categories.listCategories(db(), guildId).map((c) => c.id),
+  );
+  const next = [...new Set(categoryIds)].filter((id) => valid.has(id));
+
+  repos.panels.setPanelCategories(db(), panelId, next);
+  for (const id of panel.categoryIds) {
+    if (!next.includes(id)) {
+      repos.panelStats.clearPanelCategory(db(), panelId, id);
+    }
+  }
+
+  if (panel.status === "published" && panel.messageId) {
+    await enqueueJob(guildId, "edit_panel", { panelId });
+  }
+
+  audit(
+    guildId,
+    userId,
+    "panel.categories",
+    `Set ${panel.embed.title || `panel #${panel.id}`} to ${next.length} ticket type(s)`,
+  );
+  rev(guildId);
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------------------
 // Open tickets (live console)
 // ---------------------------------------------------------------------------
