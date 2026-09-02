@@ -26,6 +26,7 @@ describe("migrations", () => {
       "009_priority_tags_sla_panelstats",
       "010_staff_status",
       "011_dashboard_grants",
+      "012_applications",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
