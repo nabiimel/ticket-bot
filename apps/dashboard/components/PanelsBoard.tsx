@@ -3,13 +3,17 @@
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { setPanelCategorySet } from "@/app/dashboard/[guildId]/actions";
+import {
+  publishPanel,
+  setPanelCategorySet,
+} from "@/app/dashboard/[guildId]/actions";
 import { useToast } from "./Toast";
 
 type Cat = { id: number; label: string; emoji: string | null };
 type Panel = {
   id: number;
   title: string;
+  channelId: string | null;
   channelName: string | null;
   status: "draft" | "published";
   categoryIds: number[];
@@ -35,6 +39,9 @@ export function PanelsBoard({
   // panelId -> ordered categoryIds (the editable state)
   const [assign, setAssign] = useState<Record<number, number[]>>(() =>
     Object.fromEntries(panels.map((p) => [p.id, [...p.categoryIds]])),
+  );
+  const [status, setStatus] = useState<Record<number, "draft" | "published">>(
+    () => Object.fromEntries(panels.map((p) => [p.id, p.status])),
   );
 
   const catById = (id: number) => categories.find((c) => c.id === id);
@@ -99,6 +106,21 @@ export function PanelsBoard({
       panelId,
       (assign[panelId] ?? []).filter((x) => x !== catId),
     );
+
+  const publish = (panelId: number) => {
+    const prev = status[panelId];
+    setStatus((s) => ({ ...s, [panelId]: "published" }));
+    start(async () => {
+      const res = await publishPanel(guildId, panelId);
+      if (res.ok) {
+        toast.success("Panel published — posting to Discord");
+        router.refresh();
+      } else {
+        setStatus((s) => ({ ...s, [panelId]: prev }));
+        toast.error(res.error ?? "Couldn't publish");
+      }
+    });
+  };
 
   const catFace = (c: Cat) => `${c.emoji ? `${c.emoji} ` : ""}${c.label}`;
 
@@ -200,15 +222,15 @@ export function PanelsBoard({
                 </span>
                 <span
                   className={
-                    p.status === "published"
+                    status[p.id] === "published"
                       ? "badge badge-green"
                       : "badge badge-amber"
                   }
                 >
-                  {p.status}
+                  {status[p.id]}
                 </span>
               </div>
-              <div className="mt-0.5 flex items-center gap-2 text-[11px] text-faint">
+              <div className="mt-1 flex items-center gap-2 text-[11px] text-faint">
                 <span>
                   {p.channelName ? `#${p.channelName}` : "no channel"}
                 </span>
@@ -219,6 +241,19 @@ export function PanelsBoard({
                 >
                   Open editor
                 </Link>
+                <button
+                  type="button"
+                  className="btn-secondary ml-auto !px-2 !py-0.5 text-[11px]"
+                  disabled={pending || !p.channelId}
+                  title={
+                    p.channelId
+                      ? undefined
+                      : "Set a target channel in the editor first"
+                  }
+                  onClick={() => publish(p.id)}
+                >
+                  {status[p.id] === "published" ? "Re-post" : "Publish"}
+                </button>
               </div>
             </div>
 

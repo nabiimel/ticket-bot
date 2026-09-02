@@ -90,6 +90,7 @@ export default async function PanelsPage({
             panels={panels.map((p) => ({
               id: p.id,
               title: p.embed.title || `Panel #${p.id}`,
+              channelId: p.channelId,
               channelName: p.channelId
                 ? (channelName.get(p.channelId) ?? null)
                 : null,
