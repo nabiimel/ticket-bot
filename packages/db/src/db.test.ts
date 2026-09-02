@@ -25,6 +25,7 @@ describe("migrations", () => {
       "008_notification_reads",
       "009_priority_tags_sla_panelstats",
       "010_staff_status",
+      "011_dashboard_grants",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
@@ -92,6 +93,32 @@ describe("tickets repo", () => {
     const after = repos.tickets.getTicket(db, t.id)!;
     expect(after.priority).toBe("urgent");
     expect(after.tags).toEqual(["billing", "vip"]); // trimmed, lowercased, deduped
+  });
+});
+
+describe("dashboardGrants repo", () => {
+  it("resolves the highest level among a member's roles", () => {
+    const db = freshDb();
+    repos.dashboardGrants.setGrant(db, "g1", "r1", "console");
+    repos.dashboardGrants.setGrant(db, "g1", "r2", "admin");
+    repos.dashboardGrants.setGrant(db, "g1", "r3", "editor");
+
+    expect(repos.dashboardGrants.resolveLevel(db, "g1", [])).toBeNull();
+    expect(repos.dashboardGrants.resolveLevel(db, "g1", ["rX"])).toBeNull();
+    expect(repos.dashboardGrants.resolveLevel(db, "g1", ["r1"])).toBe(
+      "console",
+    );
+    expect(repos.dashboardGrants.resolveLevel(db, "g1", ["r1", "r3"])).toBe(
+      "editor",
+    );
+    expect(
+      repos.dashboardGrants.resolveLevel(db, "g1", ["r1", "r2", "r3"]),
+    ).toBe("admin");
+
+    repos.dashboardGrants.removeGrant(db, "g1", "r2");
+    expect(
+      repos.dashboardGrants.resolveLevel(db, "g1", ["r1", "r2", "r3"]),
+    ).toBe("editor");
   });
 });
 

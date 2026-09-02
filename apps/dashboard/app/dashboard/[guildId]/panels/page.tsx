@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireGuildAccess } from "@/lib/guild-access";
 import { redirect } from "next/navigation";
 import { db, repos } from "@/lib/db";
 import { getGuildChannels } from "@/lib/discord";
@@ -18,6 +19,7 @@ export default async function PanelsPage({
   searchParams: { view?: string };
 }) {
   const { guildId } = params;
+  await requireGuildAccess(guildId, "editor");
   const panels = repos.panels.listPanels(db(), guildId);
   const categories = repos.categories.listCategories(db(), guildId);
   const view = searchParams.view === "list" ? "list" : "board";

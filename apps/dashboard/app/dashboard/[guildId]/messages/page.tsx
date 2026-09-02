@@ -1,14 +1,16 @@
 import { db, repos } from "@/lib/db";
+import { requireGuildAccess } from "@/lib/guild-access";
 import { MessagesEditor } from "@/components/MessagesEditor";
 import { PageHeader } from "@/components/PageHeader";
 
 export const dynamic = "force-dynamic";
 
-export default function MessagesPage({
+export default async function MessagesPage({
   params,
 }: {
   params: { guildId: string };
 }) {
+  await requireGuildAccess(params.guildId, "editor");
   const cfg = repos.guildConfig.ensureGuildConfig(db(), params.guildId);
   return (
     <div className="page">

@@ -1,16 +1,18 @@
 import { db, repos } from "@/lib/db";
+import { requireGuildAccess } from "@/lib/guild-access";
 import { CategoryCreateForm } from "@/components/CategoryCreateForm";
 import { CategoryList } from "@/components/CategoryList";
 import { PageHeader } from "@/components/PageHeader";
 
 export const dynamic = "force-dynamic";
 
-export default function CategoriesPage({
+export default async function CategoriesPage({
   params,
 }: {
   params: { guildId: string };
 }) {
   const { guildId } = params;
+  await requireGuildAccess(guildId, "editor");
   const cats = repos.categories.listCategories(db(), guildId);
 
   return (

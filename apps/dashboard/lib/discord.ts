@@ -182,6 +182,22 @@ export async function getGuildChannels(
   });
 }
 
+/** The role ids a member currently has in a guild. `[]` if not a member. */
+export async function getGuildMemberRoles(
+  guildId: string,
+  userId: string,
+): Promise<string[]> {
+  return cached(`member-roles:${guildId}:${userId}`, async () => {
+    const res = await fetch(`${API}/guilds/${guildId}/members/${userId}`, {
+      headers: botHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const m = (await res.json()) as { roles?: string[] };
+    return m.roles ?? [];
+  });
+}
+
 /**
  * `userId -> display name` for up to 1000 guild members (needs the Server
  * Members intent, which the bot has). Empty map if the request fails.

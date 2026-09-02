@@ -1,16 +1,18 @@
 import { db, repos } from "@/lib/db";
+import { requireGuildAccess } from "@/lib/guild-access";
 import { SnippetCreateForm } from "@/components/SnippetCreateForm";
 import { SnippetList } from "@/components/SnippetList";
 import { PageHeader } from "@/components/PageHeader";
 
 export const dynamic = "force-dynamic";
 
-export default function SnippetsPage({
+export default async function SnippetsPage({
   params,
 }: {
   params: { guildId: string };
 }) {
   const { guildId } = params;
+  await requireGuildAccess(guildId, "editor");
   const snippets = repos.snippets.listSnippets(db(), guildId);
 
   return (

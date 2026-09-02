@@ -1,4 +1,5 @@
 import { db, repos } from "@/lib/db";
+import { requireGuildAccess } from "@/lib/guild-access";
 import { getGuildMemberNames, nameOf } from "@/lib/discord";
 import { PageHeader } from "@/components/PageHeader";
 import { LocalTime } from "@/components/LocalTime";
@@ -10,6 +11,7 @@ export default async function AuditPage({
 }: {
   params: { guildId: string };
 }) {
+  await requireGuildAccess(params.guildId, "admin");
   const rows = repos.audit.listAudit(db(), params.guildId, 200);
   const names = await getGuildMemberNames(params.guildId);
 

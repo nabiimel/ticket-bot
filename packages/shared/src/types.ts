@@ -95,6 +95,27 @@ export interface StaffHours {
 
 export type StaffStatusOverride = "auto" | "open" | "closed";
 
+/** Dashboard access tiers, lowest to highest. */
+export type DashboardLevel = "console" | "editor" | "admin";
+export const DASHBOARD_LEVELS: DashboardLevel[] = [
+  "console",
+  "editor",
+  "admin",
+];
+
+const LEVEL_ORDER: Record<DashboardLevel, number> = {
+  console: 0,
+  editor: 1,
+  admin: 2,
+};
+
+export function levelAtLeast(
+  have: DashboardLevel,
+  need: DashboardLevel,
+): boolean {
+  return LEVEL_ORDER[have] >= LEVEL_ORDER[need];
+}
+
 export interface GuildConfig {
   guildId: string;
   logChannelId: string | null;

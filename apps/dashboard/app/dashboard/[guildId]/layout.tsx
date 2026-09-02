@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { levelAtLeast, type DashboardLevel } from "@ticketbot/shared";
 import { auth, signOut } from "@/auth";
 import { requireGuildAccess } from "@/lib/guild-access";
 import { db, repos } from "@/lib/db";
@@ -15,19 +16,50 @@ import { NavigationGuard } from "@/components/NavigationGuard";
 
 export const dynamic = "force-dynamic";
 
-const NAV = [
-  { href: "", label: "Overview", icon: Icon.overview },
-  { href: "/tickets", label: "Tickets", icon: Icon.tickets },
-  { href: "/notifications", label: "Notifications", icon: Icon.bell },
-  { href: "/general", label: "General", icon: Icon.general },
-  { href: "/categories", label: "Categories", icon: Icon.categories },
-  { href: "/panels", label: "Panels", icon: Icon.panels },
-  { href: "/messages", label: "Messages", icon: Icon.messages },
-  { href: "/snippets", label: "Snippets", icon: Icon.snippets },
-  { href: "/blacklist", label: "Blacklist", icon: Icon.blacklist },
-  { href: "/transcripts", label: "Transcripts", icon: Icon.transcripts },
-  { href: "/stats", label: "Stats", icon: Icon.stats },
-  { href: "/audit", label: "Audit log", icon: Icon.audit },
+const NAV: {
+  href: string;
+  label: string;
+  icon: JSX.Element;
+  min: DashboardLevel;
+}[] = [
+  { href: "", label: "Overview", icon: Icon.overview, min: "console" },
+  { href: "/tickets", label: "Tickets", icon: Icon.tickets, min: "console" },
+  {
+    href: "/notifications",
+    label: "Notifications",
+    icon: Icon.bell,
+    min: "console",
+  },
+  { href: "/general", label: "General", icon: Icon.general, min: "editor" },
+  {
+    href: "/categories",
+    label: "Categories",
+    icon: Icon.categories,
+    min: "editor",
+  },
+  { href: "/panels", label: "Panels", icon: Icon.panels, min: "editor" },
+  { href: "/messages", label: "Messages", icon: Icon.messages, min: "editor" },
+  { href: "/snippets", label: "Snippets", icon: Icon.snippets, min: "editor" },
+  {
+    href: "/blacklist",
+    label: "Blacklist",
+    icon: Icon.blacklist,
+    min: "admin",
+  },
+  {
+    href: "/transcripts",
+    label: "Transcripts",
+    icon: Icon.transcripts,
+    min: "console",
+  },
+  { href: "/stats", label: "Stats", icon: Icon.stats, min: "console" },
+  { href: "/audit", label: "Audit log", icon: Icon.audit, min: "admin" },
+  {
+    href: "/permissions",
+    label: "Permissions",
+    icon: Icon.permissions,
+    min: "admin",
+  },
 ];
 
 export default async function GuildLayout({
@@ -37,8 +69,9 @@ export default async function GuildLayout({
   children: React.ReactNode;
   params: { guildId: string };
 }) {
-  await requireGuildAccess(params.guildId);
+  const { level } = await requireGuildAccess(params.guildId);
   const { guildId } = params;
+  const visibleNav = NAV.filter((i) => levelAtLeast(level, i.min));
   const session = await auth();
   const me = session?.user;
   const guild = repos.guilds.getGuild(db(), guildId);
@@ -85,7 +118,7 @@ export default async function GuildLayout({
     ? getNotificationFeed(guildId, me.discordId, 30)
     : { items: [], unread: 0, lastSeen: 0 };
 
-  const navItems: NavItem[] = NAV.map((item) => ({
+  const navItems: NavItem[] = visibleNav.map((item) => ({
     href: `/dashboard/${guildId}${item.href}`,
     label: item.label,
     icon: item.icon,

@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  DASHBOARD_LEVELS,
   SUPPORTED_LANGUAGES,
   TICKET_PRIORITIES,
   isSupportedLanguage,
   isValidEmoji,
   type ButtonConfig,
+  type DashboardLevel,
   type EmbedConfig,
   type FormField,
   type PanelStyle,
@@ -52,7 +54,7 @@ export async function saveGeneral(
   _prev: FormState,
   form: FormData,
 ): Promise<FormState> {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, message: SUSPENDED_MSG };
   const str = (k: string) => {
     const v = form.get(k);
@@ -272,7 +274,7 @@ export async function createCategoryFromForm(
   _prev: FormState,
   form: FormData,
 ): Promise<FormState> {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, message: SUSPENDED_MSG };
   const key = String(form.get("key") ?? "")
     .trim()
@@ -318,7 +320,7 @@ export async function saveCategory(
   categoryId: number,
   payload: Partial<CategoryPayload>,
 ) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const existing = repos.categories.getCategory(db(), categoryId);
   if (!existing || existing.guildId !== guildId) {
@@ -390,7 +392,7 @@ export async function saveCategory(
 }
 
 export async function deleteCategory(guildId: string, categoryId: number) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const existing = repos.categories.getCategory(db(), categoryId);
   if (existing?.guildId === guildId) {
@@ -407,7 +409,7 @@ export async function deleteCategory(guildId: string, categoryId: number) {
 }
 
 export async function reorderCategories(guildId: string, orderedIds: number[]) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const owned = new Set(
     repos.categories.listCategories(db(), guildId).map((c) => c.id),
@@ -434,7 +436,7 @@ export interface PanelPayload {
 }
 
 export async function createPanel(guildId: string) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const panel = repos.panels.createPanel(db(), guildId, {});
   audit(guildId, userId, "panel.create", `Created panel #${panel.id}`);
@@ -447,7 +449,7 @@ export async function savePanel(
   panelId: number,
   payload: PanelPayload,
 ) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const existing = repos.panels.getPanel(db(), panelId);
   if (!existing || existing.guildId !== guildId) {
@@ -461,7 +463,7 @@ export async function savePanel(
 }
 
 export async function publishPanel(guildId: string, panelId: number) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const panel = repos.panels.getPanel(db(), panelId);
   if (!panel || panel.guildId !== guildId) {
@@ -480,7 +482,7 @@ export async function publishPanel(guildId: string, panelId: number) {
 }
 
 export async function deletePanel(guildId: string, panelId: number) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const panel = repos.panels.getPanel(db(), panelId);
   if (panel?.guildId === guildId) {
@@ -500,7 +502,7 @@ export async function setPanelCategorySet(
   panelId: number,
   categoryIds: number[],
 ) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const panel = repos.panels.getPanel(db(), panelId);
   if (!panel || panel.guildId !== guildId) {
@@ -615,7 +617,7 @@ export async function sendTest(
   channelId: string,
   embed: EmbedConfig,
 ) {
-  await requireGuildAccess(guildId);
+  await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   if (!channelId) return { ok: false, error: "Pick a channel" };
   if (!hit(`test:${guildId}`, 15_000)) {
@@ -637,7 +639,7 @@ export async function saveMessages(
     feedbackPromptEmbed: EmbedConfig | null;
   },
 ) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   repos.guildConfig.updateGuildConfig(db(), guildId, payload);
   audit(
@@ -660,7 +662,7 @@ export async function addBlacklist(
   _prev: FormState,
   form: FormData,
 ): Promise<FormState> {
-  const session = await requireGuildAccess(guildId);
+  const session = await requireGuildAccess(guildId, "admin");
   if (isSuspended(guildId)) return { ok: false, message: SUSPENDED_MSG };
   const userId = String(form.get("userId") ?? "").trim();
   const reason = String(form.get("reason") ?? "").trim();
@@ -699,7 +701,7 @@ export async function removeBlacklist(
   guildId: string,
   userId: string,
 ): Promise<void> {
-  const session = await requireGuildAccess(guildId);
+  const session = await requireGuildAccess(guildId, "admin");
   if (isSuspended(guildId)) return;
   repos.blacklist.removeFromBlacklist(db(), guildId, userId);
   audit(
@@ -735,7 +737,7 @@ export async function createSnippetFromForm(
   _prev: FormState,
   form: FormData,
 ): Promise<FormState> {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, message: SUSPENDED_MSG };
 
   const name = String(form.get("name") ?? "")
@@ -775,7 +777,7 @@ export async function saveSnippet(
   id: number,
   payload: { name?: string; content?: string; attachments?: string[] },
 ) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const existing = repos.snippets.getSnippet(db(), id);
   if (!existing || existing.guildId !== guildId) {
@@ -820,7 +822,7 @@ export async function saveSnippet(
 }
 
 export async function deleteSnippet(guildId: string, id: number) {
-  const { userId } = await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId, "editor");
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const existing = repos.snippets.getSnippet(db(), id);
   if (existing?.guildId === guildId) {
@@ -838,7 +840,7 @@ export async function deleteSnippet(guildId: string, id: number) {
 }
 
 export async function refreshDiscordCaches(guildId: string) {
-  await requireGuildAccess(guildId);
+  await requireGuildAccess(guildId, "editor");
   bustDiscordCache(`roles:${guildId}`);
   bustDiscordCache(`channels:${guildId}`);
   rev(guildId);
@@ -849,6 +851,43 @@ export async function refreshDiscordCaches(guildId: string) {
 export async function markNotificationsRead(guildId: string) {
   const { userId } = await requireGuildAccess(guildId);
   repos.notifications.markAllRead(db(), guildId, userId);
+  rev(guildId);
+  return { ok: true };
+}
+
+/** Grant or revoke a Discord role's dashboard access. `level: "none"` removes it. */
+export async function setDashboardGrant(
+  guildId: string,
+  roleId: string,
+  level: string,
+) {
+  const { userId } = await requireGuildAccess(guildId, "admin");
+  if (!SNOWFLAKE.test(roleId)) return { ok: false, error: "Invalid role" };
+
+  if (level === "none") {
+    repos.dashboardGrants.removeGrant(db(), guildId, roleId);
+    audit(
+      guildId,
+      userId,
+      "permissions.revoke",
+      `Removed dashboard access for role ${roleId}`,
+    );
+  } else if ((DASHBOARD_LEVELS as string[]).includes(level)) {
+    repos.dashboardGrants.setGrant(
+      db(),
+      guildId,
+      roleId,
+      level as DashboardLevel,
+    );
+    audit(
+      guildId,
+      userId,
+      "permissions.grant",
+      `Set role ${roleId} dashboard access to ${level}`,
+    );
+  } else {
+    return { ok: false, error: "Invalid level" };
+  }
   rev(guildId);
   return { ok: true };
 }

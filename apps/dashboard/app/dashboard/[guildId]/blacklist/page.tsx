@@ -1,4 +1,5 @@
 import { db, repos } from "@/lib/db";
+import { requireGuildAccess } from "@/lib/guild-access";
 import { removeBlacklist } from "../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { BlacklistAddForm } from "@/components/BlacklistAddForm";
@@ -7,12 +8,13 @@ import { EmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
-export default function BlacklistPage({
+export default async function BlacklistPage({
   params,
 }: {
   params: { guildId: string };
 }) {
   const { guildId } = params;
+  await requireGuildAccess(guildId, "admin");
   const rows = repos.blacklist.listBlacklist(db(), guildId);
 
   return (

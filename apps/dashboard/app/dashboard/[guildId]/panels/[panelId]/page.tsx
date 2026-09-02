@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireGuildAccess } from "@/lib/guild-access";
 import { db, repos } from "@/lib/db";
 import { getGuildChannels, textChannels } from "@/lib/discord";
 import { PanelEditor } from "@/components/PanelEditor";
@@ -12,6 +13,7 @@ export default async function PanelEditPage({
   params: { guildId: string; panelId: string };
 }) {
   const { guildId } = params;
+  await requireGuildAccess(guildId, "editor");
   const panel = repos.panels.getPanel(db(), Number(params.panelId));
   if (!panel || panel.guildId !== guildId) notFound();
 

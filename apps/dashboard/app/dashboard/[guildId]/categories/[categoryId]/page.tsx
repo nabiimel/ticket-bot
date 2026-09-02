@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireGuildAccess } from "@/lib/guild-access";
 import { db, repos } from "@/lib/db";
 import {
   categoryChannels,
@@ -16,6 +17,7 @@ export default async function CategoryEditPage({
   params: { guildId: string; categoryId: string };
 }) {
   const { guildId } = params;
+  await requireGuildAccess(guildId, "editor");
   const category = repos.categories.getCategory(
     db(),
     Number(params.categoryId),

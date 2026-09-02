@@ -86,4 +86,10 @@ export const Icon = {
       <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
     </svg>
   ),
+  permissions: (
+    <svg {...base}>
+      <path d="M12 3 4 6v6c0 5 3.4 7.7 8 9 4.6-1.3 8-4 8-9V6z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  ),
 };

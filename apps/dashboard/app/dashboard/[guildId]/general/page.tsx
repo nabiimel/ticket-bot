@@ -1,4 +1,5 @@
 import { db, repos } from "@/lib/db";
+import { requireGuildAccess } from "@/lib/guild-access";
 import {
   categoryChannels,
   getGuildChannels,
@@ -16,6 +17,7 @@ export default async function GeneralPage({
   params: { guildId: string };
 }) {
   const { guildId } = params;
+  await requireGuildAccess(guildId, "editor");
   const cfg = repos.guildConfig.ensureGuildConfig(db(), guildId);
   const [roles, channels] = await Promise.all([
     getGuildRoles(guildId),
