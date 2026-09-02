@@ -40,6 +40,9 @@ export default async function PanelEditPage({
           id: c.id,
           label: c.label,
           emoji: c.emoji,
+          key: c.key,
+          form: c.form,
+          welcomeEmbed: c.welcomeEmbed,
         }))}
         textChannels={textChannels(channels).map((c) => ({
           id: c.id,

@@ -7,10 +7,10 @@ import {
   QUICK_EMOJI,
   isValidEmoji,
   type CategoryConfig,
-  type FormField,
 } from "@ticketbot/shared";
 import { EmbedEditor } from "./EmbedEditor";
 import { EmbedPreview } from "./EmbedPreview";
+import { FormFieldsBuilder } from "./FormFieldsBuilder";
 import { MultiSelect } from "./MultiSelect";
 import { Combobox } from "./Combobox";
 import {
@@ -56,22 +56,6 @@ export function CategoryEditor({
 
   const patch = (p: Partial<CategoryConfig>) =>
     setC((prev) => ({ ...prev, ...p }));
-
-  const setField = (i: number, p: Partial<FormField>) =>
-    patch({ form: c.form.map((f, idx) => (idx === i ? { ...f, ...p } : f)) });
-
-  const addField = () =>
-    patch({
-      form: [
-        ...c.form,
-        {
-          key: `field_${c.form.length + 1}`,
-          label: "New field",
-          style: "short",
-          required: false,
-        },
-      ],
-    });
 
   // {form.<key>} tokens for this category's fields, for the welcome editor.
   const formPlaceholders = [
@@ -306,87 +290,12 @@ export function CategoryEditor({
         </p>
       </div>
 
-      {/* Form builder */}
-      <div className="card space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">
-            Questions before opening ({c.form.length}/5)
-          </h2>
-          <button
-            className="btn-secondary"
-            onClick={addField}
-            disabled={c.form.length >= 5}
-          >
-            Add question
-          </button>
-        </div>
-        {c.form.length === 0 && (
-          <p className="text-sm text-faint">
-            No questions — tickets open immediately.
-          </p>
-        )}
-        {c.form.map((f, i) => (
-          <div
-            key={i}
-            className="grid grid-cols-1 gap-2 rounded-md border border-line p-3 sm:grid-cols-[1fr_1fr_auto_auto_auto]"
-          >
-            <input
-              className="input"
-              placeholder="Question"
-              value={f.label}
-              onChange={(e) => setField(i, { label: e.target.value })}
-            />
-            <input
-              className="input"
-              placeholder="answer id"
-              value={f.key}
-              onChange={(e) =>
-                setField(i, {
-                  key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
-                })
-              }
-            />
-            <select
-              className="input"
-              value={f.style}
-              onChange={(e) =>
-                setField(i, { style: e.target.value as FormField["style"] })
-              }
-            >
-              <option value="short">Short answer</option>
-              <option value="paragraph">Paragraph</option>
-            </select>
-            <label className="flex items-center gap-1 text-xs">
-              <input
-                type="checkbox"
-                checked={f.required}
-                onChange={(e) => setField(i, { required: e.target.checked })}
-              />
-              Required
-            </label>
-            <button
-              className="text-xs text-discord-red hover:underline"
-              onClick={() =>
-                patch({ form: c.form.filter((_, idx) => idx !== i) })
-              }
-            >
-              remove
-            </button>
-          </div>
-        ))}
-        {c.form.length > 0 && (
-          <p className="text-xs text-faint">
-            Reference an answer in the welcome message as{" "}
-            <code className="text-discord-blurple">
-              {"{form."}
-              {c.form[0]?.key || "answer_id"}
-              {"}"}
-            </code>
-            , or drop them all in with{" "}
-            <code className="text-discord-blurple">{"{form.all}"}</code>.
-          </p>
-        )}
-      </div>
+      {/* Questions members answer to open a ticket */}
+      <FormFieldsBuilder
+        fields={c.form}
+        onChange={(form) => patch({ form })}
+        categoryLabel={c.label}
+      />
 
       {/* Welcome override */}
       <div className="card space-y-4">

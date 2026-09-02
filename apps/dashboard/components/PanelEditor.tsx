@@ -9,11 +9,13 @@ import {
   type ButtonConfig,
   type ButtonStyleName,
   type EmbedConfig,
+  type FormField,
   type PanelConfig,
   type PanelStyle,
 } from "@ticketbot/shared";
 import { EmbedEditor } from "./EmbedEditor";
 import { EmbedPreview } from "./EmbedPreview";
+import { OpenFlowSimulator } from "./OpenFlowSimulator";
 import { Combobox } from "./Combobox";
 import {
   deletePanel,
@@ -27,7 +29,14 @@ import { useConfirm } from "./ConfirmDialog";
 import { StickySaveBar } from "./StickySaveBar";
 
 type Opt = { id: string; name: string };
-type Cat = { id: number; label: string; emoji: string | null };
+type Cat = {
+  id: number;
+  label: string;
+  emoji: string | null;
+  key: string;
+  form: FormField[];
+  welcomeEmbed: EmbedConfig | null;
+};
 
 const STYLE_CLASSES: Record<ButtonStyleName, string> = {
   Primary: "bg-discord-blurple text-white",
@@ -181,6 +190,20 @@ export function PanelEditor({
               )}
             </div>
           )}
+          <OpenFlowSimulator
+            embed={embed}
+            style={style}
+            dropdownPlaceholder={placeholder || null}
+            buttons={buttons}
+            categories={selected.map((c) => ({
+              id: c.id,
+              key: c.key,
+              label: c.label,
+              emoji: c.emoji,
+              form: c.form,
+              welcomeEmbed: c.welcomeEmbed,
+            }))}
+          />
         </div>
       </div>
 
