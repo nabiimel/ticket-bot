@@ -82,6 +82,19 @@ export const TICKET_PRIORITIES: TicketPriority[] = [
   "urgent",
 ];
 
+/** Staff coverage hours for the live panel status line. */
+export interface StaffHours {
+  /** IANA timezone, e.g. "America/New_York". */
+  tz: string;
+  /**
+   * Sun..Sat (index 0..6). `null` = closed that day; otherwise
+   * `[openMinuteOfDay, closeMinuteOfDay]`.
+   */
+  days: ([number, number] | null)[];
+}
+
+export type StaffStatusOverride = "auto" | "open" | "closed";
+
 export interface GuildConfig {
   guildId: string;
   logChannelId: string | null;
@@ -105,6 +118,11 @@ export interface GuildConfig {
   slaUnclaimedMins: number;
   /** Minutes with no staff reply before a ticket is flagged. */
   slaNoReplyMins: number;
+  /** Show a live "Staff online / offline" line on published panels. */
+  staffStatusEnabled: boolean;
+  staffHours: StaffHours | null;
+  /** `auto` follows the hours; `open`/`closed` force the line. */
+  staffStatusOverride: StaffStatusOverride;
   /** Host kill-switch: blocks ticket opening, jobs, sweeps and dashboard writes. */
   suspended: boolean;
 }

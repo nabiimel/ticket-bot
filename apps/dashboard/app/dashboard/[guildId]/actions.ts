@@ -116,6 +116,32 @@ export async function saveGeneral(
     }
   }
 
+  // --- Staff hours ---
+  const staffStatusEnabled = form.get("staffStatusEnabled") === "on";
+  const ovRaw = str("staffOverride");
+  const staffStatusOverride =
+    ovRaw === "open" || ovRaw === "closed" ? ovRaw : "auto";
+  const staffTz = str("staffTz") ?? "UTC";
+  const hmToMin = (v: string | null): number | null => {
+    if (!v) return null;
+    const [h, m] = v.split(":").map(Number);
+    return Number.isInteger(h) && Number.isInteger(m) && h >= 0 && h < 24
+      ? h * 60 + m
+      : null;
+  };
+  const staffDays: ([number, number] | null)[] = [];
+  for (let d = 0; d < 7; d++) {
+    const openDay = form.get(`staffDay${d}Open`) === "on";
+    const f = hmToMin(str(`staffDay${d}From`));
+    const t = hmToMin(str(`staffDay${d}To`));
+    staffDays.push(openDay && f != null && t != null && t > f ? [f, t] : null);
+  }
+  const staffHours = { tz: staffTz, days: staffDays };
+  if (staffStatusEnabled && staffDays.every((x) => x === null)) {
+    fieldErrors.staffHours =
+      "Open at least one day (with an end time after the start time)";
+  }
+
   const closeBehaviour =
     str("closeBehaviour") === "archive" ? "archive" : "delete";
   const archiveCategoryId = str("archiveCategoryId");
@@ -154,6 +180,9 @@ export async function saveGeneral(
     transcriptRetentionDays,
     slaUnclaimedMins,
     slaNoReplyMins,
+    staffStatusEnabled,
+    staffHours,
+    staffStatusOverride,
   };
   const GEN_LABELS: Record<string, string> = {
     logChannelId: "log channel",
@@ -170,6 +199,9 @@ export async function saveGeneral(
     transcriptRetentionDays: "transcript retention",
     slaUnclaimedMins: "unclaimed target",
     slaNoReplyMins: "first-reply target",
+    staffStatusEnabled: "staff status line",
+    staffHours: "staff hours",
+    staffStatusOverride: "staff status override",
   };
   const genChanged = Object.keys(next)
     .filter(
@@ -184,6 +216,19 @@ export async function saveGeneral(
   // The default staff role applies to every ticket — re-sync open channels.
   if (before.defaultStaffRoleId !== defaultStaffRoleId) {
     await enqueueJob(guildId, "sync_ticket_perms", {});
+  }
+
+  // Staff-status settings changed → re-post published panels so the line updates.
+  const staffChanged =
+    before.staffStatusEnabled !== staffStatusEnabled ||
+    before.staffStatusOverride !== staffStatusOverride ||
+    JSON.stringify(before.staffHours) !== JSON.stringify(staffHours);
+  if (staffChanged) {
+    for (const p of repos.panels.listPanels(db(), guildId)) {
+      if (p.status === "published" && p.channelId) {
+        await enqueueJob(guildId, "edit_panel", { panelId: p.id });
+      }
+    }
   }
 
   audit(

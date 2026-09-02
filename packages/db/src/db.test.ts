@@ -24,6 +24,7 @@ describe("migrations", () => {
       "007_category_disabled",
       "008_notification_reads",
       "009_priority_tags_sla_panelstats",
+      "010_staff_status",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
@@ -134,6 +135,24 @@ describe("guildConfig repo", () => {
     const cfg2 = repos.guildConfig.getGuildConfig(db, "g1");
     expect(cfg2.slaUnclaimedMins).toBe(15);
     expect(cfg2.slaNoReplyMins).toBe(45);
+
+    // staff hours defaults + JSON round-trip
+    expect(cfg2.staffStatusEnabled).toBe(false);
+    expect(cfg2.staffHours).toBeNull();
+    expect(cfg2.staffStatusOverride).toBe("auto");
+    repos.guildConfig.updateGuildConfig(db, "g1", {
+      staffStatusEnabled: true,
+      staffStatusOverride: "closed",
+      staffHours: {
+        tz: "Europe/London",
+        days: [null, [540, 1020], [540, 1020], null, null, null, null],
+      },
+    });
+    const cfg3 = repos.guildConfig.getGuildConfig(db, "g1");
+    expect(cfg3.staffStatusEnabled).toBe(true);
+    expect(cfg3.staffStatusOverride).toBe("closed");
+    expect(cfg3.staffHours?.tz).toBe("Europe/London");
+    expect(cfg3.staffHours?.days[1]).toEqual([540, 1020]);
 
     repos.guildConfig.updateGuildConfig(db, "g1", { claimingEnabled: false });
     expect(repos.guildConfig.getGuildConfig(db, "g1").claimingEnabled).toBe(

@@ -23,6 +23,7 @@ import { buildPanelComponents, buildTicketControls } from "./embeds.js";
 import { buildEmbedWithAssets } from "./embedAssets.js";
 import { buildTicketOverwrites, staffRoleIdsFor } from "./permissions.js";
 import { closeTicket } from "./ticketManager.js";
+import { computeStaffStatus, staffStatusLine } from "./staffStatus.js";
 import { logger } from "./logger.js";
 
 let running = false;
@@ -58,6 +59,8 @@ async function handleRepostOrEdit(
     buildContext({ guild }),
   );
   const components = buildPanelComponents(panel, categories, guild.name);
+  const cfg = repos.guildConfig.getGuildConfig(db, panel.guildId);
+  const statusLine = staffStatusLine(computeStaffStatus(cfg));
   const channel = await textChannel(client, panel.guildId, panel.channelId);
   if (!channel) throw new Error("panel has no valid target channel");
 
@@ -85,7 +88,9 @@ async function handleRepostOrEdit(
     if (existing) {
       try {
         // `attachments: []` clears any previously-attached image before re-adding.
+        // `content: ""` clears the status line when it's turned off.
         await existing.edit({
+          content: statusLine ?? "",
           embeds: [embed],
           components,
           files,
@@ -100,7 +105,12 @@ async function handleRepostOrEdit(
       }
     }
   }
-  const msg = await channel.send({ embeds: [embed], components, files });
+  const msg = await channel.send({
+    content: statusLine || undefined,
+    embeds: [embed],
+    components,
+    files,
+  });
   repos.panels.setPanelMessage(db, panel.id, channel.id, msg.id);
 }
 

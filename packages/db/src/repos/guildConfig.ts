@@ -3,6 +3,8 @@ import {
   type CloseBehaviour,
   type EmbedConfig,
   type GuildConfig,
+  type StaffHours,
+  type StaffStatusOverride,
 } from "@ticketbot/shared";
 import type { DB } from "../index.js";
 
@@ -13,6 +15,24 @@ function parseEmbed(json: string | null): EmbedConfig | null {
   } catch {
     return null;
   }
+}
+
+function parseStaffHours(json: string | null): StaffHours | null {
+  if (!json) return null;
+  try {
+    const v = JSON.parse(json) as StaffHours;
+    if (
+      v &&
+      typeof v.tz === "string" &&
+      Array.isArray(v.days) &&
+      v.days.length === 7
+    ) {
+      return v;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 function map(r: any): GuildConfig {
@@ -35,6 +55,10 @@ function map(r: any): GuildConfig {
     claimingEnabled: r.claiming_enabled == null ? true : !!r.claiming_enabled,
     slaUnclaimedMins: r.sla_unclaimed_mins ?? 30,
     slaNoReplyMins: r.sla_no_reply_mins ?? 60,
+    staffStatusEnabled: !!r.staff_status_enabled,
+    staffHours: parseStaffHours(r.staff_hours_json),
+    staffStatusOverride: (r.staff_status_override ??
+      "auto") as StaffStatusOverride,
     suspended: !!r.suspended,
   };
 }
@@ -59,6 +83,9 @@ function defaults(guildId: string): GuildConfig {
     claimingEnabled: true,
     slaUnclaimedMins: 30,
     slaNoReplyMins: 60,
+    staffStatusEnabled: false,
+    staffHours: null,
+    staffStatusOverride: "auto",
     suspended: false,
   };
 }
@@ -97,6 +124,9 @@ const COLUMN_MAP: Record<string, string> = {
   claimingEnabled: "claiming_enabled",
   slaUnclaimedMins: "sla_unclaimed_mins",
   slaNoReplyMins: "sla_no_reply_mins",
+  staffStatusEnabled: "staff_status_enabled",
+  staffHours: "staff_hours_json",
+  staffStatusOverride: "staff_status_override",
   suspended: "suspended",
 };
 
@@ -118,13 +148,15 @@ export function updateGuildConfig(
     if (
       key === "feedbackEnabled" ||
       key === "claimingEnabled" ||
+      key === "staffStatusEnabled" ||
       key === "suspended"
     )
       value = raw ? 1 : 0;
     else if (
       key === "feedbackPromptEmbed" ||
       key === "welcomeEmbed" ||
-      key === "closeEmbed"
+      key === "closeEmbed" ||
+      key === "staffHours"
     ) {
       value = raw == null ? null : JSON.stringify(raw);
     }

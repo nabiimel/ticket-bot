@@ -17,6 +17,45 @@ function inputCls(state: FormState, name: string): string {
   return state?.fieldErrors?.[name] ? "input input-invalid" : "input";
 }
 
+const DAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+// A short, opinionated list; the guild's own tz is added if it's not here.
+const STAFF_TZ = [
+  "UTC",
+  "America/Los_Angeles",
+  "America/Denver",
+  "America/Chicago",
+  "America/New_York",
+  "America/Sao_Paulo",
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Athens",
+  "Europe/Moscow",
+  "Africa/Johannesburg",
+  "Asia/Dubai",
+  "Asia/Kolkata",
+  "Asia/Singapore",
+  "Asia/Manila",
+  "Asia/Tokyo",
+  "Australia/Sydney",
+  "Pacific/Auckland",
+];
+
+const minToHM = (min: number) =>
+  `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(
+    2,
+    "0",
+  )}`;
+
 export function GeneralForm({
   guildId,
   cfg,
@@ -244,6 +283,93 @@ export function GeneralForm({
             <FieldError state={state} name="slaNoReplyMins" />
           </div>
         </div>
+      </section>
+
+      <section className="space-y-5">
+        <h2 className="text-sm font-semibold text-dim">Staff hours</h2>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="staffStatusEnabled"
+            defaultChecked={cfg.staffStatusEnabled}
+          />
+          Show a live <strong>Staff online / offline</strong> line on published
+          panels
+        </label>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Timezone</label>
+            <select
+              name="staffTz"
+              defaultValue={cfg.staffHours?.tz ?? "UTC"}
+              className="input"
+            >
+              {STAFF_TZ.includes(cfg.staffHours?.tz ?? "") ||
+              !cfg.staffHours?.tz ? null : (
+                <option value={cfg.staffHours.tz}>{cfg.staffHours.tz}</option>
+              )}
+              {STAFF_TZ.map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">Right now</label>
+            <select
+              name="staffOverride"
+              defaultValue={cfg.staffStatusOverride}
+              className="input"
+            >
+              <option value="auto">Follow the hours below</option>
+              <option value="open">Force “online”</option>
+              <option value="closed">Force “offline”</option>
+            </select>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          {DAY_NAMES.map((name, d) => {
+            const w = cfg.staffHours?.days?.[d];
+            const on = cfg.staffHours ? !!w : d >= 1 && d <= 5;
+            const from = w ? minToHM(w[0]) : "09:00";
+            const to = w ? minToHM(w[1]) : "17:00";
+            return (
+              <div
+                key={d}
+                className="grid grid-cols-[7rem_auto_1fr_auto_1fr] items-center gap-2 text-sm"
+              >
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name={`staffDay${d}Open`}
+                    defaultChecked={on}
+                  />
+                  {name}
+                </label>
+                <span className="text-faint">from</span>
+                <input
+                  type="time"
+                  name={`staffDay${d}From`}
+                  defaultValue={from}
+                  className="input py-1"
+                />
+                <span className="text-faint">to</span>
+                <input
+                  type="time"
+                  name={`staffDay${d}To`}
+                  defaultValue={to}
+                  className="input py-1"
+                />
+              </div>
+            );
+          })}
+        </div>
+        <FieldError state={state} name="staffHours" />
+        <p className="text-xs text-faint">
+          Times are in the timezone above. Members can always open a ticket —
+          this only sets expectations.
+        </p>
       </section>
 
       <section className="space-y-5">

@@ -9,12 +9,15 @@ import {
 import { dataDir, repos, transcriptsDir } from "@ticketbot/db";
 import { getDb } from "./db.js";
 import { closeTicket } from "./ticketManager.js";
+import { staffStatusKey } from "./staffStatus.js";
 import { logger } from "./logger.js";
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const SNAPSHOT_KEEP = 48;
 /** Warn once when idle past the threshold; close on the next sweep if still idle. */
 const warned = new Map<number, number>();
+/** Last known staff-status key per guild, to re-post panels only on a change. */
+const staffState = new Map<string, string>();
 let timer: NodeJS.Timeout | null = null;
 
 async function sweepInactivity(client: Client, now: number): Promise<void> {
@@ -107,6 +110,29 @@ async function sweepSnapshots(): Promise<void> {
   logger.info(`DB snapshot written: ${target}`);
 }
 
+/**
+ * When a guild's staff-online state flips (or an override changes), re-post its
+ * published panels so the status line at the top updates. On the first sweep
+ * after boot we only record the state — no churn.
+ */
+function sweepStaffStatus(client: Client): void {
+  const db = getDb();
+  for (const [, guild] of client.guilds.cache) {
+    const cfg = repos.guildConfig.getGuildConfig(db, guild.id);
+    if (cfg.suspended) continue;
+    const key = staffStatusKey(cfg);
+    const known = staffState.get(guild.id);
+    staffState.set(guild.id, key);
+    if (known === undefined || known === key) continue;
+
+    for (const p of repos.panels.listPanels(db, guild.id)) {
+      if (p.status === "published" && p.channelId) {
+        repos.jobs.enqueueJob(db, guild.id, "edit_panel", { panelId: p.id });
+      }
+    }
+  }
+}
+
 async function sweep(client: Client): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
   await sweepInactivity(client, now).catch((e) =>
@@ -116,6 +142,11 @@ async function sweep(client: Client): Promise<void> {
     logger.error("transcript sweep", e),
   );
   await sweepSnapshots().catch((e) => logger.error("snapshot sweep", e));
+  try {
+    sweepStaffStatus(client);
+  } catch (e) {
+    logger.error("staff-status sweep", e);
+  }
 }
 
 export function startScheduler(client: Client): void {
