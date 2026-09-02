@@ -92,4 +92,10 @@ export const Icon = {
       <path d="m9 12 2 2 4-4" />
     </svg>
   ),
+  applications: (
+    <svg {...base}>
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M9 8h6M9 12h6M9 16h4" />
+    </svg>
+  ),
 };

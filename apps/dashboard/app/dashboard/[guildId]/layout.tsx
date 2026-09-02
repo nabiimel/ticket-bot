@@ -25,6 +25,12 @@ const NAV: {
   { href: "", label: "Overview", icon: Icon.overview, min: "console" },
   { href: "/tickets", label: "Tickets", icon: Icon.tickets, min: "console" },
   {
+    href: "/applications",
+    label: "Applications",
+    icon: Icon.applications,
+    min: "console",
+  },
+  {
     href: "/notifications",
     label: "Notifications",
     icon: Icon.bell,

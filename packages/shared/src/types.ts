@@ -275,6 +275,55 @@ export interface FeedNotification {
 }
 
 // ---------------------------------------------------------------------------
+// Applications
+// ---------------------------------------------------------------------------
+
+export type ApplicationStatus = "draft" | "published";
+export type SubmissionStatus = "pending" | "approved" | "denied";
+
+export interface ApplicationEligibility {
+  /** Minimum Discord account age in days. */
+  minAccountDays?: number;
+  /** Minimum time in this server, in days. */
+  minMemberDays?: number;
+  requiredRoleIds?: string[];
+  blockedRoleIds?: string[];
+}
+
+export interface ApplicationConfig {
+  id: number;
+  guildId: string;
+  name: string;
+  channelId: string | null;
+  messageId: string | null;
+  embed: EmbedConfig;
+  buttonLabel: string;
+  questions: FormField[];
+  reviewerRoleIds: string[];
+  grantRoleIds: string[];
+  logChannelId: string | null;
+  eligibility: ApplicationEligibility | null;
+  maxOpenPerUser: number;
+  status: ApplicationStatus;
+  createdBy: string | null;
+}
+
+export interface ApplicationSubmission {
+  id: number;
+  applicationId: number;
+  guildId: string;
+  userId: string;
+  answers: { key: string; label: string; value: string }[];
+  status: SubmissionStatus;
+  reviewerId: string | null;
+  reason: string | null;
+  cardChannelId: string | null;
+  cardMessageId: string | null;
+  decidedAt: number | null;
+  createdAt: number;
+}
+
+// ---------------------------------------------------------------------------
 // Jobs (dashboard -> bot outbox)
 // ---------------------------------------------------------------------------
 
@@ -284,7 +333,9 @@ export type JobType =
   | "sync_ticket_perms"
   | "post_preview"
   | "admin_close_ticket"
-  | "admin_claim_ticket";
+  | "admin_claim_ticket"
+  | "repost_application"
+  | "decide_application";
 
 export type JobStatus = "pending" | "done" | "error";
 
@@ -322,4 +373,13 @@ export interface AdminCloseTicketPayload {
 export interface AdminClaimTicketPayload {
   ticketId: number;
   staffId: string;
+}
+export interface RepostApplicationPayload {
+  applicationId: number;
+}
+export interface DecideApplicationPayload {
+  submissionId: number;
+  decision: "approved" | "denied";
+  reviewerId: string;
+  reason?: string;
 }

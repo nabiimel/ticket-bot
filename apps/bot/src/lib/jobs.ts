@@ -9,9 +9,11 @@ import { t } from "@ticketbot/shared";
 import type {
   AdminClaimTicketPayload,
   AdminCloseTicketPayload,
+  DecideApplicationPayload,
   EditPanelPayload,
   JobRecord,
   PostPreviewPayload,
+  RepostApplicationPayload,
   RepostPanelPayload,
   SyncTicketPermsPayload,
 } from "@ticketbot/shared";
@@ -24,6 +26,7 @@ import { buildEmbedWithAssets } from "./embedAssets.js";
 import { buildTicketOverwrites, staffRoleIdsFor } from "./permissions.js";
 import { closeTicket } from "./ticketManager.js";
 import { computeStaffStatus, staffStatusLine } from "./staffStatus.js";
+import { applyDecision, buildApplicationMessage } from "./applications.js";
 import { logger } from "./logger.js";
 
 let running = false;
@@ -225,6 +228,56 @@ async function handleAdminClaim(
   }
 }
 
+async function handleRepostApplication(
+  client: Client,
+  job: JobRecord<RepostApplicationPayload>,
+) {
+  const db = getDb();
+  const app = repos.applications.getApplication(db, job.payload.applicationId);
+  if (!app)
+    throw new Error(`application ${job.payload.applicationId} not found`);
+  const guild = client.guilds.cache.get(app.guildId);
+  if (!guild) throw new Error(`guild ${app.guildId} unavailable`);
+  const channel = await textChannel(client, app.guildId, app.channelId);
+  if (!channel) throw new Error("application has no valid target channel");
+
+  const { embeds, components, files } = buildApplicationMessage(app, guild);
+
+  if (app.messageId) {
+    const existing = await channel.messages
+      .fetch({ message: app.messageId, force: true })
+      .catch(() => null);
+    if (existing) {
+      try {
+        await existing.edit({ embeds, components, files, attachments: [] });
+        return;
+      } catch (err) {
+        logger.warn(`application ${app.id}: edit failed, reposting`, err);
+      }
+    }
+  }
+  const msg = await channel.send({ embeds, components, files });
+  repos.applications.setApplicationMessage(db, app.id, channel.id, msg.id);
+}
+
+async function handleDecideApplication(
+  client: Client,
+  job: JobRecord<DecideApplicationPayload>,
+) {
+  const sub = repos.applications.getSubmission(
+    getDb(),
+    job.payload.submissionId,
+  );
+  if (!sub || sub.status !== "pending") return;
+  await applyDecision(
+    client,
+    sub,
+    job.payload.decision,
+    job.payload.reviewerId,
+    job.payload.reason ?? null,
+  );
+}
+
 async function processOne(client: Client, job: JobRecord): Promise<void> {
   switch (job.type) {
     case "repost_panel":
@@ -242,6 +295,18 @@ async function processOne(client: Client, job: JobRecord): Promise<void> {
       break;
     case "admin_claim_ticket":
       await handleAdminClaim(client, job as JobRecord<AdminClaimTicketPayload>);
+      break;
+    case "repost_application":
+      await handleRepostApplication(
+        client,
+        job as JobRecord<RepostApplicationPayload>,
+      );
+      break;
+    case "decide_application":
+      await handleDecideApplication(
+        client,
+        job as JobRecord<DecideApplicationPayload>,
+      );
       break;
     default:
       logger.warn("unknown job type", job.type);

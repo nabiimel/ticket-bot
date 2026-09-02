@@ -6,6 +6,7 @@ import { getDb } from "../lib/db.js";
 import { getCategoriesCached } from "../lib/configCache.js";
 import { completeOpen } from "./openFlow.js";
 import { runClose } from "./buttons.js";
+import { applicationModalHandlers } from "./applications.js";
 import type { FormAnswer } from "../lib/ticketManager.js";
 
 const formModal: ModalHandler = {
@@ -67,4 +68,5 @@ export const modalHandlers: ModalHandler[] = [
   formModal,
   closeReasonSubmit,
   rateComment,
+  ...applicationModalHandlers,
 ];

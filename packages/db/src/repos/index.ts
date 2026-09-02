@@ -13,3 +13,4 @@ export * as stats from "./stats.js";
 export * as audit from "./audit.js";
 export * as notifications from "./notifications.js";
 export * as dashboardGrants from "./dashboardGrants.js";
+export * as applications from "./applications.js";

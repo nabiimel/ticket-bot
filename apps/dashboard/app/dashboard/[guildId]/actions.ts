@@ -18,7 +18,7 @@ import {
 import { requireGuildAccess } from "@/lib/guild-access";
 import { db, repos } from "@/lib/db";
 import { enqueueJob } from "@/lib/enqueue";
-import { bustDiscordCache } from "@/lib/discord";
+import { bustDiscordCache, getGuildMemberRoles } from "@/lib/discord";
 import { cleanupOrphanUploads } from "@/lib/uploads";
 import { hit } from "@/lib/cooldown";
 import { err, ok, type FormState } from "@/lib/form";
@@ -851,6 +851,153 @@ export async function refreshDiscordCaches(guildId: string) {
 export async function markNotificationsRead(guildId: string) {
   const { userId } = await requireGuildAccess(guildId);
   repos.notifications.markAllRead(db(), guildId, userId);
+  rev(guildId);
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Applications
+// ---------------------------------------------------------------------------
+
+export interface ApplicationPayload {
+  name: string;
+  channelId: string | null;
+  embed: EmbedConfig;
+  buttonLabel: string;
+  questions: FormField[];
+  reviewerRoleIds: string[];
+  grantRoleIds: string[];
+  logChannelId: string | null;
+  eligibility: {
+    minAccountDays?: number;
+    minMemberDays?: number;
+    requiredRoleIds?: string[];
+    blockedRoleIds?: string[];
+  } | null;
+  maxOpenPerUser: number;
+}
+
+export async function createApplication(guildId: string) {
+  const { userId } = await requireGuildAccess(guildId, "editor");
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const app = repos.applications.createApplication(db(), guildId, {
+    createdBy: userId,
+  });
+  audit(
+    guildId,
+    userId,
+    "application.create",
+    `Created application #${app.id}`,
+  );
+  rev(guildId);
+  return { ok: true, id: app.id };
+}
+
+export async function saveApplication(
+  guildId: string,
+  id: number,
+  payload: ApplicationPayload,
+) {
+  const { userId } = await requireGuildAccess(guildId, "editor");
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const existing = repos.applications.getApplication(db(), id);
+  if (!existing || existing.guildId !== guildId) {
+    return { ok: false, error: "Not found" };
+  }
+  repos.applications.updateApplication(db(), id, {
+    name: payload.name.slice(0, 100) || "Staff application",
+    channelId: payload.channelId,
+    embed: payload.embed,
+    buttonLabel: payload.buttonLabel.slice(0, 80) || "Apply",
+    questions: payload.questions.slice(0, 5),
+    reviewerRoleIds: payload.reviewerRoleIds,
+    grantRoleIds: payload.grantRoleIds,
+    logChannelId: payload.logChannelId,
+    eligibility: payload.eligibility,
+    maxOpenPerUser: Math.max(1, Math.min(10, payload.maxOpenPerUser || 1)),
+  });
+  audit(guildId, userId, "application.update", `Saved application #${id}`);
+  if (existing.status === "published" && existing.messageId) {
+    await enqueueJob(guildId, "repost_application", { applicationId: id });
+  }
+  rev(guildId);
+  return { ok: true };
+}
+
+export async function publishApplication(guildId: string, id: number) {
+  const { userId } = await requireGuildAccess(guildId, "editor");
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const app = repos.applications.getApplication(db(), id);
+  if (!app || app.guildId !== guildId) return { ok: false, error: "Not found" };
+  if (!app.channelId)
+    return { ok: false, error: "Choose a channel to post in" };
+  if (!app.logChannelId)
+    return { ok: false, error: "Set a review channel first" };
+  if (app.reviewerRoleIds.length === 0)
+    return { ok: false, error: "Add at least one reviewer role" };
+  repos.applications.updateApplication(db(), id, { status: "published" });
+  await enqueueJob(guildId, "repost_application", { applicationId: id });
+  audit(guildId, userId, "application.publish", `Published application #${id}`);
+  rev(guildId);
+  return { ok: true };
+}
+
+export async function deleteApplication(guildId: string, id: number) {
+  const { userId } = await requireGuildAccess(guildId, "editor");
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const app = repos.applications.getApplication(db(), id);
+  if (app?.guildId === guildId) {
+    repos.applications.deleteApplication(db(), id);
+    audit(guildId, userId, "application.delete", `Deleted application #${id}`);
+    rev(guildId);
+  }
+  return { ok: true };
+}
+
+/** Approve or deny a submission from the dashboard. Reviewers + editors only. */
+export async function decideSubmissionAction(
+  guildId: string,
+  submissionId: number,
+  decision: "approved" | "denied",
+  reason?: string,
+) {
+  const { userId, level } = await requireGuildAccess(guildId, "console");
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const sub = repos.applications.getSubmission(db(), submissionId);
+  if (!sub || sub.guildId !== guildId || sub.status !== "pending") {
+    return { ok: false, error: "Already decided or not found" };
+  }
+  const app = repos.applications.getApplication(db(), sub.applicationId);
+  if (!app) return { ok: false, error: "Not found" };
+
+  if (level === "console") {
+    const roles = await getGuildMemberRoles(guildId, userId).catch(
+      (): string[] => [],
+    );
+    if (!app.reviewerRoleIds.some((r) => roles.includes(r))) {
+      return { ok: false, error: "You're not a reviewer for this application" };
+    }
+  }
+
+  repos.applications.decideSubmission(
+    db(),
+    submissionId,
+    decision,
+    userId,
+    reason?.trim() || null,
+  );
+  await enqueueJob(guildId, "decide_application", {
+    submissionId,
+    decision,
+    reviewerId: userId,
+    reason: reason?.trim() || undefined,
+  });
+  audit(
+    guildId,
+    userId,
+    "application.decide",
+    `${decision === "approved" ? "Approved" : "Denied"} application submission #${submissionId}`,
+  );
   rev(guildId);
   return { ok: true };
 }
