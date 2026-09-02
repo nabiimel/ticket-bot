@@ -26,7 +26,7 @@ export default async function ApplicationPanelsPage({
   }
 
   return (
-    <div className="page max-w-2xl">
+    <div className="page max-w-4xl">
       <PageHeader
         title="Application panels"
         description="Each collects a form and routes it to reviewers."

@@ -18,7 +18,7 @@ export default async function BlacklistPage({
   const rows = repos.blacklist.listBlacklist(db(), guildId);
 
   return (
-    <div className="page max-w-2xl">
+    <div className="page max-w-4xl">
       <PageHeader
         title="Blacklist"
         description="Blocked users can't open tickets. Use their Discord user ID (Developer Mode → right-click → Copy User ID)."

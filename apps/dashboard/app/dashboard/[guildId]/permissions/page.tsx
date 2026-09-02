@@ -22,7 +22,7 @@ export default async function PermissionsPage({
   );
 
   return (
-    <div className="page max-w-2xl">
+    <div className="page max-w-4xl">
       <PageHeader
         title="Dashboard permissions"
         description="Give staff dashboard access by Discord role — no Manage Server needed."

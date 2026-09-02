@@ -59,7 +59,7 @@ export default async function PanelsPage({
   );
 
   return (
-    <div className={`page ${view === "list" ? "max-w-2xl" : ""}`}>
+    <div className={`page ${view === "list" ? "max-w-4xl" : ""}`}>
       <PageHeader
         title="Panels"
         description="The messages people click to open a ticket."

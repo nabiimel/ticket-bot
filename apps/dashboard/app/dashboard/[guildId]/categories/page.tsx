@@ -16,7 +16,7 @@ export default async function CategoriesPage({
   const cats = repos.categories.listCategories(db(), guildId);
 
   return (
-    <div className="page max-w-2xl">
+    <div className="page max-w-4xl">
       <PageHeader
         title="Categories"
         description="Ticket types — each with its own staff, form, and welcome message."

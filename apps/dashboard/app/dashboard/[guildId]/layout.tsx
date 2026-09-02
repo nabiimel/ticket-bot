@@ -144,7 +144,7 @@ export default async function GuildLayout({
     <div className="relative z-10 min-h-screen">
       <NavigationGuard />
       <header className="sticky top-0 z-20 border-b border-line bg-[var(--bg-glass)] shadow-sm backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
+        <div className="flex w-full items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
             <MobileNav items={navItems} />
             <Link
@@ -211,8 +211,8 @@ export default async function GuildLayout({
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-6xl gap-9 px-4 py-9 sm:px-6">
-        <aside className="hidden w-56 shrink-0 lg:block">
+      <div className="flex w-full gap-8 px-4 py-8 sm:px-6 lg:gap-9 lg:px-8">
+        <aside className="hidden w-56 shrink-0 lg:block xl:w-64">
           <div className="sticky top-[4.75rem] rounded-card border border-line bg-surface p-2 shadow-sm">
             <SideNav items={navItems} />
           </div>

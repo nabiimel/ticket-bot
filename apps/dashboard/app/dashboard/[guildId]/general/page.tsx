@@ -25,7 +25,7 @@ export default async function GeneralPage({
   ]);
 
   return (
-    <div className="page max-w-2xl">
+    <div className="page max-w-4xl">
       <PageHeader
         title="General settings"
         description="Channels, roles, and behaviour that apply to every ticket."

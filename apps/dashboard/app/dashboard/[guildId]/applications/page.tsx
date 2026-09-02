@@ -47,7 +47,7 @@ export default async function ApplicationsPage({
   }));
 
   return (
-    <div className="page max-w-3xl">
+    <div className="page max-w-5xl">
       <PageHeader
         title="Applications"
         description="Review submissions and approve or deny."

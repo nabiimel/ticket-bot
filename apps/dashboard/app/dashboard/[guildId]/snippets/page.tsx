@@ -16,7 +16,7 @@ export default async function SnippetsPage({
   const snippets = repos.snippets.listSnippets(db(), guildId);
 
   return (
-    <div className="page max-w-2xl">
+    <div className="page max-w-4xl">
       <PageHeader
         title="Snippets"
         description="Canned replies staff post into a ticket with /snippet. Text supports the same {tokens} as messages, plus optional images."
