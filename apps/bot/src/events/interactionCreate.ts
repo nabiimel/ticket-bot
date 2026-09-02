@@ -2,6 +2,7 @@ import { Events, MessageFlags, type Interaction } from "discord.js";
 import { commandMap } from "../commands/index.js";
 import {
   buttonHandlers,
+  componentSelectHandlers,
   modalHandlers,
   selectHandlers,
 } from "../interactions/index.js";
@@ -39,6 +40,18 @@ export async function execute(interaction: Interaction): Promise<void> {
       return;
     }
 
+    if (
+      interaction.isRoleSelectMenu() ||
+      interaction.isChannelSelectMenu() ||
+      interaction.isUserSelectMenu() ||
+      interaction.isMentionableSelectMenu()
+    ) {
+      const { prefix, args } = parseCustomId(interaction.customId);
+      const handler = componentSelectHandlers.find((h) => h.prefix === prefix);
+      if (handler) await handler.run(interaction, args);
+      return;
+    }
+
     if (interaction.isModalSubmit()) {
       const { prefix, args } = parseCustomId(interaction.customId);
       const handler = modalHandlers.find((h) => h.prefix === prefix);
@@ -47,13 +60,7 @@ export async function execute(interaction: Interaction): Promise<void> {
     }
   } catch (err) {
     logger.error("interaction handler error", err);
-    if (
-      (interaction.isChatInputCommand() ||
-        interaction.isButton() ||
-        interaction.isStringSelectMenu() ||
-        interaction.isModalSubmit()) &&
-      !interaction.replied
-    ) {
+    if (interaction.isRepliable() && !interaction.replied) {
       const payload = {
         content: "Something went wrong handling that.",
         flags: MessageFlags.Ephemeral as const,
