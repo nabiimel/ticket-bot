@@ -7,15 +7,27 @@ import { db, repos } from "@/lib/db";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// The transcript HTML is built from user-authored ticket messages. Even though
-// discord-html-transcripts sanitizes, serve it under a strict sandbox so a
-// sanitizer gap can't run script on the dashboard origin.
+// discord-html-transcripts renders with <discord-message> web components that
+// need JavaScript (an inline data blob + the component library from jsDelivr).
+// `sandbox allow-scripts` — WITHOUT allow-same-origin — lets them run in an
+// opaque origin: the transcript can style itself but can't read the dashboard
+// session, cookies or storage, so a sanitizer gap in the (already-escaping)
+// library still has nowhere to go.
 const SAFE_HEADERS = {
   "content-type": "text/html; charset=utf-8",
   "x-content-type-options": "nosniff",
-  "content-security-policy":
-    "sandbox; default-src 'none'; img-src https: data:; " +
-    "style-src 'unsafe-inline' https:; font-src https: data:; media-src https: data:",
+  "content-security-policy": [
+    "sandbox allow-scripts",
+    "default-src 'none'",
+    "script-src 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+    "style-src 'unsafe-inline' https:",
+    "img-src https: data: blob:",
+    "font-src https: data:",
+    "media-src https: data:",
+    "connect-src https://cdn.jsdelivr.net",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join("; "),
   "cache-control": "private, no-store",
 };
 
