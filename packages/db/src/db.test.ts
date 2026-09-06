@@ -27,8 +27,50 @@ describe("migrations", () => {
       "010_staff_status",
       "011_dashboard_grants",
       "012_applications",
+      "013_reservations",
     ]);
     expect(runMigrations(db)).toEqual([]);
+  });
+});
+
+describe("reservations repo", () => {
+  it("creates, de-dupes by ticket, edits, and checks off", () => {
+    const db = freshDb();
+    const r = repos.reservations.createReservation(db, {
+      guildId: "g1",
+      ticketId: 5,
+      channelId: "c5",
+      buyerUserId: "u1",
+      buyerTag: "Buyer One",
+      addedBy: "staff1",
+    });
+    expect(r.status).toBe("open");
+    expect(repos.reservations.countOpen(db, "g1")).toBe(1);
+    expect(repos.reservations.getOpenForTicket(db, 5)?.id).toBe(r.id);
+
+    repos.reservations.updateReservation(db, r.id, {
+      note: "3x fresh",
+      qty: 3,
+    });
+    expect(repos.reservations.getReservation(db, r.id)?.note).toBe("3x fresh");
+    expect(repos.reservations.getReservation(db, r.id)?.qty).toBe(3);
+
+    repos.reservations.setStatus(db, r.id, "done", "staff2");
+    const done = repos.reservations.getReservation(db, r.id)!;
+    expect(done.status).toBe("done");
+    expect(done.doneBy).toBe("staff2");
+    expect(done.doneAt).toBeGreaterThan(0);
+    expect(repos.reservations.countOpen(db, "g1")).toBe(0);
+    expect(repos.reservations.getOpenForTicket(db, 5)).toBeNull();
+
+    expect(
+      repos.reservations.listReservations(db, "g1", { status: "done" }),
+    ).toHaveLength(1);
+    repos.reservations.setStatus(db, r.id, "open", "staff2");
+    expect(repos.reservations.getReservation(db, r.id)?.doneAt).toBeNull();
+
+    repos.reservations.deleteReservation(db, r.id);
+    expect(repos.reservations.getReservation(db, r.id)).toBeNull();
   });
 });
 

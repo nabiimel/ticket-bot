@@ -1038,3 +1038,106 @@ export async function setDashboardGrant(
   rev(guildId);
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Reservations
+// ---------------------------------------------------------------------------
+
+function cleanNote(v: unknown): string {
+  return typeof v === "string" ? v.trim().slice(0, 500) : "";
+}
+function cleanQty(v: unknown): number {
+  const n = Math.trunc(Number(v));
+  return Number.isFinite(n) ? Math.min(Math.max(n, 1), 9999) : 1;
+}
+
+/** Add a walk-in buyer who didn't open a ticket. */
+export async function addReservation(
+  guildId: string,
+  input: { buyerTag: string; note?: string; qty?: number },
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const buyerTag =
+    typeof input.buyerTag === "string"
+      ? input.buyerTag.trim().slice(0, 80)
+      : "";
+  if (!buyerTag) return { ok: false, error: "Enter a name" };
+
+  const r = repos.reservations.createReservation(db(), {
+    guildId,
+    buyerTag,
+    note: cleanNote(input.note),
+    qty: cleanQty(input.qty),
+    addedBy: userId,
+  });
+  audit(guildId, userId, "reservation.add", `Added walk-in “${buyerTag}”`);
+  rev(guildId);
+  return { ok: true, id: r.id };
+}
+
+/** Tick a buyer off (done) or move them back to the open queue. */
+export async function setReservationDone(
+  guildId: string,
+  id: number,
+  done: boolean,
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const r = repos.reservations.getReservation(db(), id);
+  if (!r || r.guildId !== guildId) {
+    return { ok: false, error: "Reservation not found" };
+  }
+  repos.reservations.setStatus(db(), id, done ? "done" : "open", userId);
+  audit(
+    guildId,
+    userId,
+    done ? "reservation.done" : "reservation.reopen",
+    `${done ? "Fulfilled" : "Reopened"} reservation for ${r.buyerTag}`,
+  );
+  if (done) {
+    await enqueueJob(guildId, "reservation_done", {
+      reservationId: id,
+      staffId: userId,
+    });
+  }
+  rev(guildId);
+  return { ok: true };
+}
+
+export async function updateReservation(
+  guildId: string,
+  id: number,
+  patch: { note?: string; qty?: number },
+) {
+  await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const r = repos.reservations.getReservation(db(), id);
+  if (!r || r.guildId !== guildId) {
+    return { ok: false, error: "Reservation not found" };
+  }
+  repos.reservations.updateReservation(db(), id, {
+    ...(patch.note !== undefined ? { note: cleanNote(patch.note) } : {}),
+    ...(patch.qty !== undefined ? { qty: cleanQty(patch.qty) } : {}),
+  });
+  rev(guildId);
+  return { ok: true };
+}
+
+export async function deleteReservation(guildId: string, id: number) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const r = repos.reservations.getReservation(db(), id);
+  if (!r || r.guildId !== guildId) {
+    return { ok: false, error: "Reservation not found" };
+  }
+  repos.reservations.deleteReservation(db(), id);
+  audit(
+    guildId,
+    userId,
+    "reservation.delete",
+    `Deleted reservation for ${r.buyerTag}`,
+  );
+  rev(guildId);
+  return { ok: true };
+}

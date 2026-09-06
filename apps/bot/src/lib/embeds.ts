@@ -142,6 +142,11 @@ export function buildTicketControls(
   }
   row.addComponents(
     new ButtonBuilder()
+      .setCustomId(`reserve:${ticketId}`)
+      .setLabel("Reserve")
+      .setEmoji("📌")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
       .setCustomId(`close:${ticketId}`)
       .setLabel("Close")
       .setStyle(ButtonStyle.Danger),

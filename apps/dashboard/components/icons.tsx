@@ -98,4 +98,10 @@ export const Icon = {
       <path d="M9 8h6M9 12h6M9 16h4" />
     </svg>
   ),
+  reservations: (
+    <svg {...base}>
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  ),
 };

@@ -335,7 +335,8 @@ export type JobType =
   | "admin_close_ticket"
   | "admin_claim_ticket"
   | "repost_application"
-  | "decide_application";
+  | "decide_application"
+  | "reservation_done";
 
 export type JobStatus = "pending" | "done" | "error";
 
@@ -382,4 +383,34 @@ export interface DecideApplicationPayload {
   decision: "approved" | "denied";
   reviewerId: string;
   reason?: string;
+}
+export interface ReservationDonePayload {
+  reservationId: number;
+  staffId: string;
+}
+
+// ---------------------------------------------------------------------------
+// Reservations
+// ---------------------------------------------------------------------------
+
+export type ReservationStatus = "open" | "done" | "cancelled";
+
+export interface ReservationRecord {
+  id: number;
+  guildId: string;
+  /** Ticket it was reserved from, or null for a dashboard walk-in. */
+  ticketId: number | null;
+  channelId: string | null;
+  /** Buyer's Discord id, or null for a walk-in with only a name. */
+  buyerUserId: string | null;
+  /** Display name captured when the row was created. */
+  buyerTag: string;
+  note: string;
+  qty: number;
+  status: ReservationStatus;
+  addedBy: string | null;
+  addedAt: number;
+  doneBy: string | null;
+  doneAt: number | null;
+  updatedAt: number;
 }

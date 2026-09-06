@@ -15,6 +15,7 @@ import type {
   PostPreviewPayload,
   RepostApplicationPayload,
   RepostPanelPayload,
+  ReservationDonePayload,
   SyncTicketPermsPayload,
 } from "@ticketbot/shared";
 import { repos } from "@ticketbot/db";
@@ -378,6 +379,32 @@ async function handleDecideApplication(
   );
 }
 
+async function handleReservationDone(
+  client: Client,
+  job: JobRecord<ReservationDonePayload>,
+) {
+  const db = getDb();
+  const r = repos.reservations.getReservation(db, job.payload.reservationId);
+  if (!r) return;
+  const guild = client.guilds.cache.get(r.guildId);
+  if (!guild) return;
+  const cfg = repos.guildConfig.getGuildConfig(db, r.guildId);
+  const channel = await textChannel(client, r.guildId, cfg.logChannelId);
+  if (!channel) return;
+
+  const who = r.buyerUserId ? `<@${r.buyerUserId}>` : `**${r.buyerTag}**`;
+  const bits = [`✅ Reservation fulfilled for ${who}`];
+  if (r.qty > 1) bits.push(`×${r.qty}`);
+  bits.push(`by <@${job.payload.staffId}>`);
+  const extra = r.note ? `\n> ${r.note}` : "";
+  await channel
+    .send({
+      content: bits.join(" ") + extra,
+      allowedMentions: { parse: [] },
+    })
+    .catch((err) => logger.warn("reservation_done log post failed", err));
+}
+
 async function processOne(client: Client, job: JobRecord): Promise<void> {
   switch (job.type) {
     case "repost_panel":
@@ -406,6 +433,12 @@ async function processOne(client: Client, job: JobRecord): Promise<void> {
       await handleDecideApplication(
         client,
         job as JobRecord<DecideApplicationPayload>,
+      );
+      break;
+    case "reservation_done":
+      await handleReservationDone(
+        client,
+        job as JobRecord<ReservationDonePayload>,
       );
       break;
     default:
