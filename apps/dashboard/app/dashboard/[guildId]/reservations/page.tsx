@@ -29,6 +29,9 @@ export default async function ReservationsPage({
     limit: 1000,
   });
   const openCount = repos.reservations.countOpen(db(), guildId);
+  const snippets = repos.snippets
+    .listSnippets(db(), guildId)
+    .map((s) => ({ id: s.id, name: s.name }));
 
   // Resolve ticket numbers for the "From" column.
   const ticketNo = new Map<number, number>();
@@ -87,7 +90,12 @@ export default async function ReservationsPage({
         ))}
       </div>
 
-      <ReservationsTable guildId={guildId} tab={status} rows={data} />
+      <ReservationsTable
+        guildId={guildId}
+        tab={status}
+        rows={data}
+        snippets={snippets}
+      />
     </div>
   );
 }

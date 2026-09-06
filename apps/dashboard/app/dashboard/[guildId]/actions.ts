@@ -1141,3 +1141,61 @@ export async function deleteReservation(guildId: string, id: number) {
   rev(guildId);
   return { ok: true };
 }
+
+/**
+ * Send one snippet into the ticket channel of every selected reservation.
+ * Walk-ins (no ticket) are skipped by the bot. Runs as a background job.
+ */
+export async function bulkSendSnippetToReservations(
+  guildId: string,
+  reservationIds: number[],
+  snippetId: number,
+  markDone: boolean,
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+
+  const ids = Array.from(
+    new Set(
+      (Array.isArray(reservationIds) ? reservationIds : [])
+        .map((n) => Math.trunc(Number(n)))
+        .filter((n) => Number.isFinite(n) && n > 0),
+    ),
+  ).slice(0, 200);
+  if (ids.length === 0) return { ok: false, error: "Nothing selected" };
+
+  const snippet = repos.snippets.getSnippet(db(), Number(snippetId));
+  if (!snippet || snippet.guildId !== guildId) {
+    return { ok: false, error: "Snippet not found" };
+  }
+
+  // Only rows that actually have a ticket can receive a channel message.
+  const eligible = ids.filter((id) => {
+    const r = repos.reservations.getReservation(db(), id);
+    return !!r && r.guildId === guildId && r.ticketId != null;
+  });
+  if (eligible.length === 0) {
+    return { ok: false, error: "None of the selected rows have a ticket" };
+  }
+
+  await enqueueJob(guildId, "reservation_bulk_snippet", {
+    reservationIds: eligible,
+    snippetId: snippet.id,
+    staffId: userId,
+    markDone: !!markDone,
+  });
+  audit(
+    guildId,
+    userId,
+    "reservation.bulkSnippet",
+    `Queued snippet “${snippet.name}” to ${eligible.length} reservation(s)${
+      markDone ? " (mark done)" : ""
+    }`,
+  );
+  rev(guildId);
+  return {
+    ok: true,
+    queued: eligible.length,
+    skipped: ids.length - eligible.length,
+  };
+}

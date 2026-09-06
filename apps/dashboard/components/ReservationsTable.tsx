@@ -5,6 +5,7 @@ import type { ReservationRecord, ReservationStatus } from "@ticketbot/shared";
 import { fmtAgo } from "@/lib/format";
 import {
   addReservation,
+  bulkSendSnippetToReservations,
   deleteReservation,
   setReservationDone,
   updateReservation,
@@ -24,10 +25,12 @@ export function ReservationsTable({
   guildId,
   tab,
   rows,
+  snippets,
 }: {
   guildId: string;
   tab: ReservationStatus | "all";
   rows: Row[];
+  snippets: { id: number; name: string }[];
 }) {
   const toast = useToast();
   const [pending, start] = useTransition();
@@ -36,6 +39,9 @@ export function ReservationsTable({
   const [local, setLocal] = useState<Record<number, Partial<Row>>>({});
   const [removed, setRemoved] = useState<Set<number>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [snippetId, setSnippetId] = useState<number | "">("");
+  const [markDone, setMarkDone] = useState(false);
 
   const merged = useMemo(
     () => rows.map((r) => ({ ...r, ...local[r.id] })),
@@ -58,6 +64,18 @@ export function ReservationsTable({
 
   const patch = (id: number, p: Partial<Row>) =>
     setLocal((s) => ({ ...s, [id]: { ...s[id], ...p } }));
+
+  const toggleSel = (id: number, on: boolean) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (on) n.add(id);
+      else n.delete(id);
+      return n;
+    });
+
+  const visibleIds = visible.map((r) => r.id);
+  const allSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
 
   const toggleDone = (r: Row, done: boolean) => {
     patch(r.id, { status: done ? "done" : "open" });
@@ -88,6 +106,11 @@ export function ReservationsTable({
   const remove = (r: Row) => {
     if (!confirm(`Delete the reservation for ${r.buyerName}?`)) return;
     setRemoved((s) => new Set(s).add(r.id));
+    setSelected((s) => {
+      const n = new Set(s);
+      n.delete(r.id);
+      return n;
+    });
     start(async () => {
       const res = await deleteReservation(guildId, r.id);
       if (!res.ok) {
@@ -116,6 +139,52 @@ export function ReservationsTable({
         setAdding(false);
       } else {
         toast.error(res.error ?? "Couldn't add");
+      }
+    });
+  };
+
+  const bulkSend = () => {
+    if (snippetId === "") {
+      toast.error("Pick a snippet");
+      return;
+    }
+    const ids = [...selected];
+    const withTicket = visible.filter(
+      (r) => selected.has(r.id) && r.ticketId != null,
+    ).length;
+    if (withTicket === 0) {
+      toast.error("None of the selected rows have a ticket");
+      return;
+    }
+    if (
+      !confirm(
+        `Send this snippet to ${withTicket} ticket channel(s)` +
+          (markDone ? " and mark them done" : "") +
+          "?",
+      )
+    )
+      return;
+    start(async () => {
+      const res = await bulkSendSnippetToReservations(
+        guildId,
+        ids,
+        Number(snippetId),
+        markDone,
+      );
+      if (res.ok) {
+        toast.success(
+          `Queued for ${res.queued}${res.skipped ? ` · ${res.skipped} skipped` : ""}`,
+        );
+        if (markDone) {
+          setLocal((s) => {
+            const n = { ...s };
+            for (const id of ids) n[id] = { ...n[id], status: "done" };
+            return n;
+          });
+        }
+        setSelected(new Set());
+      } else {
+        toast.error(res.error ?? "Couldn't send");
       }
     });
   };
@@ -177,6 +246,53 @@ export function ReservationsTable({
         </form>
       )}
 
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-card border border-accent/40 bg-[var(--accent-soft)] px-3 py-2 text-sm">
+          <span className="font-medium">{selected.size} selected</span>
+          <span className="text-dim">·</span>
+          <select
+            className="input !py-1"
+            value={snippetId}
+            onChange={(e) =>
+              setSnippetId(e.target.value === "" ? "" : Number(e.target.value))
+            }
+          >
+            <option value="">
+              {snippets.length ? "Choose a snippet…" : "No snippets yet"}
+            </option>
+            {snippets.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-1.5 text-xs text-dim">
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 accent-[var(--accent)]"
+              checked={markDone}
+              onChange={(e) => setMarkDone(e.target.checked)}
+            />
+            mark done after
+          </label>
+          <button
+            type="button"
+            className="btn-primary !py-1"
+            disabled={pending || snippets.length === 0}
+            onClick={bulkSend}
+          >
+            Send snippet
+          </button>
+          <button
+            type="button"
+            className="btn-ghost !py-1 text-xs"
+            onClick={() => setSelected(new Set())}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {visible.length === 0 ? (
         <EmptyState
           title={
@@ -194,10 +310,23 @@ export function ReservationsTable({
         />
       ) : (
         <div className="overflow-x-auto rounded-card border border-line">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[780px] text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-left text-xs uppercase tracking-wide text-faint">
-                <th className="w-10 px-3 py-2"></th>
+                <th className="w-9 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-[var(--accent)]"
+                    checked={allSelected}
+                    onChange={(e) =>
+                      setSelected(
+                        e.target.checked ? new Set(visibleIds) : new Set(),
+                      )
+                    }
+                    title="Select all"
+                  />
+                </th>
+                <th className="w-10 px-3 py-2">Done</th>
                 <th className="px-3 py-2">Buyer</th>
                 <th className="px-3 py-2">Note</th>
                 <th className="w-20 px-3 py-2">Qty</th>
@@ -210,8 +339,20 @@ export function ReservationsTable({
               {visible.map((r) => (
                 <tr
                   key={r.id}
-                  className="border-b border-line last:border-0 odd:bg-surface even:bg-surface-2/40"
+                  className={`border-b border-line last:border-0 ${
+                    selected.has(r.id)
+                      ? "bg-[var(--accent-soft)]"
+                      : "odd:bg-surface even:bg-surface-2/40"
+                  }`}
                 >
+                  <td className="px-3 py-2 align-middle">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-[var(--accent)]"
+                      checked={selected.has(r.id)}
+                      onChange={(e) => toggleSel(r.id, e.target.checked)}
+                    />
+                  </td>
                   <td className="px-3 py-2 align-middle">
                     <input
                       type="checkbox"

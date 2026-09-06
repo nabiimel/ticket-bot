@@ -336,7 +336,8 @@ export type JobType =
   | "admin_claim_ticket"
   | "repost_application"
   | "decide_application"
-  | "reservation_done";
+  | "reservation_done"
+  | "reservation_bulk_snippet";
 
 export type JobStatus = "pending" | "done" | "error";
 
@@ -387,6 +388,13 @@ export interface DecideApplicationPayload {
 export interface ReservationDonePayload {
   reservationId: number;
   staffId: string;
+}
+export interface ReservationBulkSnippetPayload {
+  reservationIds: number[];
+  snippetId: number;
+  staffId: string;
+  /** Also mark each reservation done once the snippet is sent. */
+  markDone: boolean;
 }
 
 // ---------------------------------------------------------------------------

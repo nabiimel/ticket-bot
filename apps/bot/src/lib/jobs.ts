@@ -5,7 +5,7 @@ import {
   type GuildTextBasedChannel,
   type TextChannel,
 } from "discord.js";
-import { t } from "@ticketbot/shared";
+import { renderTemplate, t } from "@ticketbot/shared";
 import type {
   AdminClaimTicketPayload,
   AdminCloseTicketPayload,
@@ -15,6 +15,7 @@ import type {
   PostPreviewPayload,
   RepostApplicationPayload,
   RepostPanelPayload,
+  ReservationBulkSnippetPayload,
   ReservationDonePayload,
   SyncTicketPermsPayload,
 } from "@ticketbot/shared";
@@ -23,9 +24,9 @@ import { getDb } from "./db.js";
 import { bustConfigCache } from "./configCache.js";
 import { buildContext } from "./context.js";
 import { buildPanelComponents, buildTicketControls } from "./embeds.js";
-import { buildEmbedWithAssets } from "./embedAssets.js";
+import { buildEmbedWithAssets, resolveUploadFiles } from "./embedAssets.js";
 import { buildTicketOverwrites, staffRoleIdsFor } from "./permissions.js";
-import { closeTicket } from "./ticketManager.js";
+import { closeTicket, injectFormTokens } from "./ticketManager.js";
 import { computeStaffStatus, staffStatusLine } from "./staffStatus.js";
 import { applyDecision, buildApplicationMessage } from "./applications.js";
 import { alertAdmins } from "./preflight.js";
@@ -405,6 +406,111 @@ async function handleReservationDone(
     .catch((err) => logger.warn("reservation_done log post failed", err));
 }
 
+async function handleReservationBulkSnippet(
+  client: Client,
+  job: JobRecord<ReservationBulkSnippetPayload>,
+) {
+  const db = getDb();
+  const { reservationIds, snippetId, staffId, markDone } = job.payload;
+  const guild = client.guilds.cache.get(job.guildId);
+  if (!guild) return;
+  const snippet = repos.snippets.getSnippet(db, snippetId);
+  const logCh = await textChannel(
+    client,
+    job.guildId,
+    repos.guildConfig.getGuildConfig(db, job.guildId).logChannelId,
+  );
+
+  if (!snippet || snippet.guildId !== job.guildId) {
+    await logCh
+      ?.send({
+        content: `⚠️ Bulk snippet send failed — snippet #${snippetId} no longer exists.`,
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => null);
+    return;
+  }
+
+  const categories = repos.categories.listCategories(db, job.guildId);
+  let sent = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const id of reservationIds) {
+    try {
+      const r = repos.reservations.getReservation(db, id);
+      if (!r || r.guildId !== job.guildId || r.ticketId == null) {
+        skipped++;
+        continue;
+      }
+      const ticket = repos.tickets.getTicket(db, r.ticketId);
+      if (!ticket) {
+        skipped++;
+        continue;
+      }
+      const channel = await textChannel(client, job.guildId, ticket.channelId);
+      if (!channel) {
+        skipped++;
+        continue;
+      }
+
+      const opener = await guild.members
+        .fetch(ticket.openerId)
+        .catch(() => null);
+      const category =
+        categories.find((c) => c.id === ticket.categoryId) ?? null;
+      const ctx = buildContext({
+        guild,
+        opener: opener ?? undefined,
+        category,
+        ticket,
+      });
+      injectFormTokens(
+        ctx,
+        repos.tickets.getFormResponses(db, ticket.id).map((fr) => ({
+          key: fr.fieldKey,
+          label: fr.fieldLabel,
+          value: fr.value,
+        })),
+      );
+      const content = (renderTemplate(snippet.content, ctx) ?? "").trim();
+      const files = resolveUploadFiles(snippet.attachments);
+      if (!content && files.length === 0) {
+        skipped++;
+        continue;
+      }
+
+      await channel.send({
+        content: content || undefined,
+        files,
+        allowedMentions: { parse: ["users"] },
+      });
+      sent++;
+      if (markDone && r.status !== "done") {
+        repos.reservations.setStatus(db, id, "done", staffId);
+      }
+    } catch (err) {
+      failed++;
+      logger.warn(`bulk snippet: reservation ${id} failed`, err);
+    }
+  }
+
+  if (logCh) {
+    const parts = [
+      `📨 <@${staffId}> sent snippet **${snippet.name}** to ${sent} reservation(s)`,
+    ];
+    if (skipped) parts.push(`${skipped} skipped (no open ticket)`);
+    if (failed) parts.push(`${failed} failed`);
+    if (markDone && sent) parts.push(`marked done`);
+    await logCh
+      .send({
+        content: parts.join(" · "),
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => null);
+  }
+}
+
 async function processOne(client: Client, job: JobRecord): Promise<void> {
   switch (job.type) {
     case "repost_panel":
@@ -439,6 +545,12 @@ async function processOne(client: Client, job: JobRecord): Promise<void> {
       await handleReservationDone(
         client,
         job as JobRecord<ReservationDonePayload>,
+      );
+      break;
+    case "reservation_bulk_snippet":
+      await handleReservationBulkSnippet(
+        client,
+        job as JobRecord<ReservationBulkSnippetPayload>,
       );
       break;
     default:
