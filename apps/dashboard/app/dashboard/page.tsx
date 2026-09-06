@@ -19,19 +19,31 @@ export default async function GuildPicker({
   searchParams: { error?: string };
 }) {
   const session = await requireSession();
+  const isDev = !!session.user?.dev;
+  const presentGuilds = repos.guilds.listPresentGuilds(db());
+  const present = new Set(presentGuilds.map((g) => g.guildId));
+
   let guilds: Awaited<ReturnType<typeof getManageableGuilds>> = [];
   let discordDown = false;
-  try {
-    guilds = await getManageableGuilds(
-      session.accessToken!,
-      session.user?.discordId,
-    );
-  } catch {
-    discordDown = true;
+  if (isDev) {
+    // No Discord token — the roster is every server the bot is in.
+    guilds = presentGuilds.map((g) => ({
+      id: g.guildId,
+      name: g.name ?? g.guildId,
+      icon: g.icon,
+      owner: true,
+      permissions: "0",
+    }));
+  } else {
+    try {
+      guilds = await getManageableGuilds(
+        session.accessToken!,
+        session.user?.discordId,
+      );
+    } catch {
+      discordDown = true;
+    }
   }
-  const present = new Set(
-    repos.guilds.listPresentGuilds(db()).map((g) => g.guildId),
-  );
 
   const inviteBase =
     `https://discord.com/api/oauth2/authorize?client_id=${process.env.DISCORD_CLIENT_ID}` +
@@ -41,9 +53,18 @@ export default async function GuildPicker({
     <main className="relative z-10 mx-auto max-w-3xl px-6 py-12">
       <div className="mb-8 flex items-end justify-between gap-4 border-b border-line pb-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Your servers</h1>
+          <h1 className="text-xl font-bold tracking-tight">
+            {isDev ? "All servers" : "Your servers"}
+            {isDev && (
+              <span className="badge badge-amber ml-2 align-middle">
+                developer
+              </span>
+            )}
+          </h1>
           <p className="mt-1 text-sm text-dim">
-            Pick a server to configure its ticket system.
+            {isDev
+              ? "Every server the bot is in. You have admin on all of them."
+              : "Pick a server to configure its ticket system."}
           </p>
         </div>
         <div className="flex items-center gap-2.5">
@@ -107,7 +128,11 @@ export default async function GuildPicker({
 
       <ul className="grid gap-2.5 sm:grid-cols-2">
         {guilds.length === 0 && (
-          <li className="text-dim">No servers where you can Manage Server.</li>
+          <li className="text-dim">
+            {isDev
+              ? "The bot isn't in any servers yet."
+              : "No servers where you can Manage Server."}
+          </li>
         )}
         {guilds.map((g) => {
           const img = iconUrl(g.id, g.icon);

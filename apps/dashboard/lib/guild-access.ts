@@ -1,5 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
+import type { Session } from "next-auth";
 import { levelAtLeast, type DashboardLevel } from "@ticketbot/shared";
 import { auth } from "@/auth";
 import { db, repos } from "./db";
@@ -11,6 +12,28 @@ export interface GuildSession {
   accessToken: string;
   /** Resolved dashboard tier for this user on this guild. */
   level: DashboardLevel;
+  /** Signed in through the operator back-door rather than Discord. */
+  dev: boolean;
+}
+
+type MaybeSession = Session | null;
+
+/** A usable Discord session (has a token + a Discord id, no refresh error). */
+function isDiscordSession(s: MaybeSession): s is Session & {
+  accessToken: string;
+  user: { discordId: string };
+} {
+  return (
+    !!s &&
+    !s.error &&
+    !s.user?.dev &&
+    typeof s.accessToken === "string" &&
+    typeof s.user?.discordId === "string"
+  );
+}
+
+function isDevSession(s: MaybeSession): boolean {
+  return !!s && !s.error && !!s.user?.dev;
 }
 
 /**
@@ -37,12 +60,25 @@ export async function requireGuildAccess(
   min: DashboardLevel = "console",
 ): Promise<GuildSession> {
   const session = await auth();
-  if (!session?.accessToken || !session.user?.discordId || session.error) {
+
+  if (!isDevSession(session) && !isDiscordSession(session)) {
     redirect("/?error=session-expired");
   }
   if (!repos.guilds.isGuildPresent(db(), guildId)) {
     redirect("/dashboard?error=bot-not-in-guild");
   }
+
+  // Operator back-door: admin on every server, no Discord round-trip.
+  if (isDevSession(session)) {
+    return {
+      guildId,
+      userId: "dev",
+      accessToken: "",
+      level: "admin",
+      dev: true,
+    };
+  }
+  if (!isDiscordSession(session)) redirect("/?error=session-expired");
 
   let level: DashboardLevel | null;
   try {
@@ -65,6 +101,7 @@ export async function requireGuildAccess(
     userId: session.user.discordId,
     accessToken: session.accessToken,
     level,
+    dev: false,
   };
 }
 
@@ -74,9 +111,18 @@ export async function checkGuildAccess(
   min: DashboardLevel = "console",
 ): Promise<GuildSession | null> {
   const session = await auth();
-  if (!session?.accessToken || !session.user?.discordId || session.error) {
-    return null;
+
+  if (isDevSession(session)) {
+    if (!repos.guilds.isGuildPresent(db(), guildId)) return null;
+    return {
+      guildId,
+      userId: "dev",
+      accessToken: "",
+      level: "admin",
+      dev: true,
+    };
   }
+  if (!isDiscordSession(session)) return null;
   if (!repos.guilds.isGuildPresent(db(), guildId)) return null;
   try {
     const level = await resolveLevel(
@@ -90,6 +136,7 @@ export async function checkGuildAccess(
       userId: session.user.discordId,
       accessToken: session.accessToken,
       level,
+      dev: false,
     };
   } catch {
     return null;
@@ -98,8 +145,8 @@ export async function checkGuildAccess(
 
 export async function requireSession() {
   const session = await auth();
-  if (!session?.accessToken || !session.user?.discordId || session.error) {
+  if (!isDevSession(session) && !isDiscordSession(session)) {
     redirect("/?error=session-expired");
   }
-  return session;
+  return session!;
 }

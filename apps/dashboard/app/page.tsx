@@ -1,7 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AuthError } from "next-auth";
 import { auth, signIn } from "@/auth";
+import { DEV_LOGIN_ENABLED } from "@/lib/dev-session";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const FEATURES = [
@@ -74,6 +76,12 @@ export default async function LandingPage({
               Your session expired — please sign in again.
             </p>
           )}
+          {(searchParams.error === "dev-auth" ||
+            searchParams.error === "CredentialsSignin") && (
+            <p className="note note-danger mt-5">
+              Incorrect developer password.
+            </p>
+          )}
 
           <form
             className="mt-7"
@@ -100,6 +108,44 @@ export default async function LandingPage({
               You&apos;ll only see servers where you have Manage Server.
             </p>
           </form>
+
+          {DEV_LOGIN_ENABLED && (
+            <details className="mt-6 w-full max-w-xs text-left">
+              <summary className="cursor-pointer text-xs text-faint hover:text-dim">
+                Developer login
+              </summary>
+              <form
+                className="mt-3 flex gap-2"
+                action={async (formData: FormData) => {
+                  "use server";
+                  const password = String(formData.get("password") ?? "");
+                  try {
+                    await signIn("dev", {
+                      password,
+                      redirectTo: "/dashboard",
+                    });
+                  } catch (error) {
+                    if (error instanceof AuthError) {
+                      redirect("/?error=dev-auth");
+                    }
+                    throw error;
+                  }
+                }}
+              >
+                <input
+                  className="input flex-1"
+                  type="password"
+                  name="password"
+                  placeholder="Password"
+                  autoComplete="off"
+                  required
+                />
+                <button className="btn-secondary" type="submit">
+                  Enter
+                </button>
+              </form>
+            </details>
+          )}
         </div>
 
         <ul className="grid w-full gap-3 sm:grid-cols-2">

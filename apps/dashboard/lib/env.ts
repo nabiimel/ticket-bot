@@ -11,6 +11,8 @@ const schema = z.object({
   DATA_DIR: z.string().default("./data"),
   BOT_INTERNAL_URL: z.string().url().optional(),
   INTERNAL_WAKE_SECRET: z.string().optional(),
+  // Optional operator back-door password. Unset = feature disabled.
+  DEV_LOGIN_PASSWORD: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;
