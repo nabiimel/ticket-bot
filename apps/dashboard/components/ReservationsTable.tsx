@@ -13,6 +13,7 @@ import {
 import { Relative } from "./Relative";
 import { EmptyState } from "./EmptyState";
 import { useToast } from "./Toast";
+import { useConfirm } from "./ConfirmDialog";
 
 type Row = ReservationRecord & {
   buyerName: string;
@@ -33,6 +34,7 @@ export function ReservationsTable({
   snippets: { id: number; name: string }[];
 }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [pending, start] = useTransition();
   const [search, setSearch] = useState("");
   // Local mirror so edits/toggles show instantly without a full refetch.
@@ -103,8 +105,14 @@ export function ReservationsTable({
     });
   };
 
-  const remove = (r: Row) => {
-    if (!confirm(`Delete the reservation for ${r.buyerName}?`)) return;
+  const remove = async (r: Row) => {
+    const ok = await confirm({
+      title: "Delete reservation?",
+      message: `This removes the row for ${r.buyerName}. It can't be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     setRemoved((s) => new Set(s).add(r.id));
     setSelected((s) => {
       const n = new Set(s);
@@ -143,7 +151,7 @@ export function ReservationsTable({
     });
   };
 
-  const bulkSend = () => {
+  const bulkSend = async () => {
     if (snippetId === "") {
       toast.error("Pick a snippet");
       return;
@@ -156,14 +164,19 @@ export function ReservationsTable({
       toast.error("None of the selected rows have a ticket");
       return;
     }
-    if (
-      !confirm(
-        `Send this snippet to ${withTicket} ticket channel(s)` +
-          (markDone ? " and mark them done" : "") +
-          "?",
-      )
-    )
-      return;
+    const snippetName =
+      snippets.find((s) => s.id === Number(snippetId))?.name ?? "this snippet";
+    const ok = await confirm({
+      title: "Send snippet?",
+      message:
+        `“${snippetName}” will be posted in ${withTicket} ticket channel${
+          withTicket === 1 ? "" : "s"
+        }, pinging each buyer` +
+        (markDone ? ", and those rows will be marked done" : "") +
+        ".",
+      confirmLabel: "Send",
+    });
+    if (!ok) return;
     start(async () => {
       const res = await bulkSendSnippetToReservations(
         guildId,
@@ -279,7 +292,7 @@ export function ReservationsTable({
             type="button"
             className="btn-primary !py-1"
             disabled={pending || snippets.length === 0}
-            onClick={bulkSend}
+            onClick={() => void bulkSend()}
           >
             Send snippet
           </button>
@@ -431,7 +444,7 @@ export function ReservationsTable({
                       className="text-faint hover:text-danger"
                       title="Delete"
                       disabled={pending}
-                      onClick={() => remove(r)}
+                      onClick={() => void remove(r)}
                     >
                       ✕
                     </button>
