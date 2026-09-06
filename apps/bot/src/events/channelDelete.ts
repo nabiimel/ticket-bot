@@ -5,6 +5,7 @@ import {
 } from "discord.js";
 import { repos } from "@ticketbot/db";
 import { getDb } from "../lib/db.js";
+import { clearPingGuard } from "../lib/pingGuard.js";
 import { logger } from "../lib/logger.js";
 
 export const name = Events.ChannelDelete;
@@ -18,6 +19,9 @@ export async function execute(
 ): Promise<void> {
   if (channel.isDMBased?.()) return;
   const db = getDb();
+  if ("guildId" in channel && channel.guildId) {
+    clearPingGuard(channel.guildId, channel.id);
+  }
   const ticket = repos.tickets.getTicketByChannel(db, channel.id);
   if (!ticket || ticket.status === "closed") return;
   repos.tickets.markAbandoned(db, ticket.id, "Ticket channel was deleted");

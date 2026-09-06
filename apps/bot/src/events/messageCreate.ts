@@ -6,6 +6,7 @@ import {
   getGuildConfigCached,
 } from "../lib/configCache.js";
 import { isStaff } from "../lib/permissions.js";
+import { handlePingGuard } from "../lib/pingGuard.js";
 
 export const name = Events.MessageCreate;
 
@@ -15,11 +16,12 @@ export async function execute(message: Message): Promise<void> {
   const ticket = repos.tickets.getTicketByChannel(db, message.channelId);
   if (!ticket || ticket.status === "closed") return;
 
+  const guildConfig = getGuildConfigCached(message.guildId);
+
   let staff = false;
   // The opener answering their own ticket is never a "staff first reply".
   if (message.author.id !== ticket.openerId) {
     try {
-      const guildConfig = getGuildConfigCached(message.guildId);
       const category =
         getCategoriesCached(message.guildId).find(
           (c) => c.id === ticket.categoryId,
@@ -31,6 +33,9 @@ export async function execute(message: Message): Promise<void> {
     } catch {
       /* ignore lookup failures, still bump activity */
     }
+  } else {
+    // Ticket opener — check for seller ping-spam.
+    await handlePingGuard(message, guildConfig).catch(() => {});
   }
 
   repos.tickets.bumpActivity(db, message.channelId, { staff });

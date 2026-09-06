@@ -59,6 +59,10 @@ function map(r: any): GuildConfig {
     staffHours: parseStaffHours(r.staff_hours_json),
     staffStatusOverride: (r.staff_status_override ??
       "auto") as StaffStatusOverride,
+    pingGuardEnabled: !!r.ping_guard_enabled,
+    pingGuardSellerId: r.ping_guard_seller_id ?? null,
+    pingGuardMaxPings: r.ping_guard_max_pings ?? 3,
+    pingGuardWindowSecs: r.ping_guard_window_secs ?? 60,
     suspended: !!r.suspended,
   };
 }
@@ -86,6 +90,10 @@ function defaults(guildId: string): GuildConfig {
     staffStatusEnabled: false,
     staffHours: null,
     staffStatusOverride: "auto",
+    pingGuardEnabled: false,
+    pingGuardSellerId: null,
+    pingGuardMaxPings: 3,
+    pingGuardWindowSecs: 60,
     suspended: false,
   };
 }
@@ -127,6 +135,10 @@ const COLUMN_MAP: Record<string, string> = {
   staffStatusEnabled: "staff_status_enabled",
   staffHours: "staff_hours_json",
   staffStatusOverride: "staff_status_override",
+  pingGuardEnabled: "ping_guard_enabled",
+  pingGuardSellerId: "ping_guard_seller_id",
+  pingGuardMaxPings: "ping_guard_max_pings",
+  pingGuardWindowSecs: "ping_guard_window_secs",
   suspended: "suspended",
 };
 
@@ -149,6 +161,7 @@ export function updateGuildConfig(
       key === "feedbackEnabled" ||
       key === "claimingEnabled" ||
       key === "staffStatusEnabled" ||
+      key === "pingGuardEnabled" ||
       key === "suspended"
     )
       value = raw ? 1 : 0;

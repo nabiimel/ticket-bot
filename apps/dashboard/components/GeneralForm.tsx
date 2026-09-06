@@ -60,12 +60,14 @@ export function GeneralForm({
   guildId,
   cfg,
   roles,
+  sellerOptions,
   textChannels,
   categoryChannels,
 }: {
   guildId: string;
   cfg: GuildConfig;
   roles: Opt[];
+  sellerOptions: Opt[];
   textChannels: Opt[];
   categoryChannels: Opt[];
 }) {
@@ -81,6 +83,7 @@ export function GeneralForm({
   );
   const [defaultStaffRoleId, setStaff] = useState(cfg.defaultStaffRoleId);
   const [archiveCategoryId, setArchive] = useState(cfg.archiveCategoryId);
+  const [pingGuardSellerId, setSeller] = useState(cfg.pingGuardSellerId);
   const [dirty, setDirty] = useState(false);
 
   useUnsavedChanges(dirty);
@@ -281,6 +284,63 @@ export function GeneralForm({
               className={inputCls(state, "slaNoReplyMins")}
             />
             <FieldError state={state} name="slaNoReplyMins" />
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-5">
+        <h2 className="text-sm font-semibold text-dim">Ping guard</h2>
+        <p className="-mt-3 text-xs text-faint">
+          Warns a ticket opener who repeatedly @-mentions the seller. Warnings
+          escalate; on the third the admins are alerted in the log channel. The
+          bot never times anyone out.
+        </p>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="pingGuardEnabled"
+            defaultChecked={cfg.pingGuardEnabled}
+          />
+          Enable ping guard
+        </label>
+        <div>
+          <label className="label">Seller (user or role)</label>
+          <Combobox
+            name="pingGuardSellerId"
+            options={sellerOptions}
+            value={pingGuardSellerId}
+            onChange={combo(setSeller)}
+            invalid={!!state?.fieldErrors?.pingGuardSellerId}
+          />
+          <p className="mt-1 text-xs text-faint">
+            Mentions of this user or role are what get counted.
+          </p>
+          <FieldError state={state} name="pingGuardSellerId" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">Pings before a warning</label>
+            <input
+              type="number"
+              name="pingGuardMaxPings"
+              min={2}
+              max={20}
+              defaultValue={cfg.pingGuardMaxPings}
+              className={inputCls(state, "pingGuardMaxPings")}
+            />
+            <FieldError state={state} name="pingGuardMaxPings" />
+          </div>
+          <div>
+            <label className="label">Within (seconds)</label>
+            <input
+              type="number"
+              name="pingGuardWindowSecs"
+              min={10}
+              max={600}
+              defaultValue={cfg.pingGuardWindowSecs}
+              className={inputCls(state, "pingGuardWindowSecs")}
+            />
+            <FieldError state={state} name="pingGuardWindowSecs" />
           </div>
         </div>
       </section>

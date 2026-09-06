@@ -118,6 +118,33 @@ export async function saveGeneral(
     }
   }
 
+  // --- Ping guard ---
+  const pingGuardEnabled = form.get("pingGuardEnabled") === "on";
+  const pingGuardSellerId = str("pingGuardSellerId");
+  const pingGuardMaxPings = Number(str("pingGuardMaxPings") ?? 3);
+  const pingGuardWindowSecs = Number(str("pingGuardWindowSecs") ?? 60);
+  if (
+    !Number.isInteger(pingGuardMaxPings) ||
+    pingGuardMaxPings < 2 ||
+    pingGuardMaxPings > 20
+  ) {
+    fieldErrors.pingGuardMaxPings = "Enter a whole number from 2 to 20";
+  }
+  if (
+    !Number.isInteger(pingGuardWindowSecs) ||
+    pingGuardWindowSecs < 10 ||
+    pingGuardWindowSecs > 600
+  ) {
+    fieldErrors.pingGuardWindowSecs =
+      "Enter a whole number of seconds from 10 to 600";
+  }
+  if (pingGuardEnabled && !pingGuardSellerId) {
+    fieldErrors.pingGuardSellerId = "Pick the seller user or role to protect";
+  }
+  if (pingGuardSellerId && !SNOWFLAKE.test(pingGuardSellerId)) {
+    fieldErrors.pingGuardSellerId = "Invalid selection";
+  }
+
   // --- Staff hours ---
   const staffStatusEnabled = form.get("staffStatusEnabled") === "on";
   const ovRaw = str("staffOverride");
@@ -185,6 +212,10 @@ export async function saveGeneral(
     staffStatusEnabled,
     staffHours,
     staffStatusOverride,
+    pingGuardEnabled,
+    pingGuardSellerId,
+    pingGuardMaxPings,
+    pingGuardWindowSecs,
   };
   const GEN_LABELS: Record<string, string> = {
     logChannelId: "log channel",
@@ -204,6 +235,10 @@ export async function saveGeneral(
     staffStatusEnabled: "staff status line",
     staffHours: "staff hours",
     staffStatusOverride: "staff status override",
+    pingGuardEnabled: "ping guard",
+    pingGuardSellerId: "ping guard seller",
+    pingGuardMaxPings: "ping guard threshold",
+    pingGuardWindowSecs: "ping guard window",
   };
   const genChanged = Object.keys(next)
     .filter(

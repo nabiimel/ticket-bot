@@ -144,6 +144,14 @@ export interface GuildConfig {
   staffHours: StaffHours | null;
   /** `auto` follows the hours; `open`/`closed` force the line. */
   staffStatusOverride: StaffStatusOverride;
+  /** Warn a ticket opener who repeatedly @-mentions the seller. */
+  pingGuardEnabled: boolean;
+  /** The seller: a user id OR a role id. Mentions of either are counted. */
+  pingGuardSellerId: string | null;
+  /** Pings within the window before a warning fires. */
+  pingGuardMaxPings: number;
+  /** Rolling window, in seconds, that `pingGuardMaxPings` is measured over. */
+  pingGuardWindowSecs: number;
   /** Host kill-switch: blocks ticket opening, jobs, sweeps and dashboard writes. */
   suspended: boolean;
 }

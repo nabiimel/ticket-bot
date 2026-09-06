@@ -28,6 +28,7 @@ describe("migrations", () => {
       "011_dashboard_grants",
       "012_applications",
       "013_reservations",
+      "014_ping_guard",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
@@ -237,6 +238,27 @@ describe("guildConfig repo", () => {
     expect(repos.guildConfig.getGuildConfig(db, "g1").suspended).toBe(true);
     repos.guildConfig.updateGuildConfig(db, "g1", { suspended: false });
     expect(repos.guildConfig.getGuildConfig(db, "g1").suspended).toBe(false);
+  });
+
+  it("round-trips ping guard settings", () => {
+    const db = freshDb();
+    const d = repos.guildConfig.getGuildConfig(db, "g1");
+    expect(d.pingGuardEnabled).toBe(false);
+    expect(d.pingGuardSellerId).toBeNull();
+    expect(d.pingGuardMaxPings).toBe(3);
+    expect(d.pingGuardWindowSecs).toBe(60);
+
+    repos.guildConfig.updateGuildConfig(db, "g1", {
+      pingGuardEnabled: true,
+      pingGuardSellerId: "123456789012345678",
+      pingGuardMaxPings: 5,
+      pingGuardWindowSecs: 90,
+    });
+    const c = repos.guildConfig.getGuildConfig(db, "g1");
+    expect(c.pingGuardEnabled).toBe(true);
+    expect(c.pingGuardSellerId).toBe("123456789012345678");
+    expect(c.pingGuardMaxPings).toBe(5);
+    expect(c.pingGuardWindowSecs).toBe(90);
   });
 });
 
