@@ -1,16 +1,22 @@
 import { openDb } from "./index.js";
 import * as repos from "./repos/index.js";
 
-// Host-operator kill-switch for a single tenant guild.
-//   npm run guild --workspace @ticketbot/db -- suspend   <guildId>
-//   npm run guild --workspace @ticketbot/db -- unsuspend <guildId>
-//   npm run guild --workspace @ticketbot/db -- list
+// Host-operator tools for tenant guilds.
+//   npm run guild --workspace @ticketbot/db -- guilds          list every server the bot is in
+//   npm run guild --workspace @ticketbot/db -- suspend   <id>  kill-switch a server
+//   npm run guild --workspace @ticketbot/db -- unsuspend <id>  lift the kill-switch
+//   npm run guild --workspace @ticketbot/db -- list            list suspended servers only
 const [cmd, guildId] = process.argv.slice(2);
 const db = openDb();
 
 function usage(): never {
-  console.error("usage: guild <suspend|unsuspend|list> [guildId]");
+  console.error("usage: guild <guilds|list|suspend|unsuspend> [guildId]");
   process.exit(1);
+}
+
+function fmtDate(unixSeconds: number | null): string {
+  if (!unixSeconds) return "—";
+  return new Date(unixSeconds * 1000).toISOString().slice(0, 10);
 }
 
 switch (cmd) {
@@ -23,6 +29,28 @@ switch (cmd) {
     console.log(
       `${guildId} is now ${cmd === "suspend" ? "SUSPENDED" : "active"}`,
     );
+    break;
+  }
+  case "guilds": {
+    const guilds = repos.guilds.listPresentGuilds(db);
+    const suspended = new Set(
+      (
+        db
+          .prepare(`SELECT guild_id FROM guild_config WHERE suspended = 1`)
+          .all() as { guild_id: string }[]
+      ).map((r) => r.guild_id),
+    );
+    if (guilds.length === 0) {
+      console.log("The bot isn't in any servers.");
+      break;
+    }
+    console.log(`${guilds.length} server(s):`);
+    for (const g of guilds) {
+      const flag = suspended.has(g.guildId) ? "  [SUSPENDED]" : "";
+      console.log(
+        `  ${g.guildId}  joined ${fmtDate(g.addedAt)}  ${g.name ?? "(unknown name)"}${flag}`,
+      );
+    }
     break;
   }
   case "list": {
