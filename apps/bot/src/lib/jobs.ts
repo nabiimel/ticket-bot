@@ -27,7 +27,11 @@ import { buildTicketOverwrites, staffRoleIdsFor } from "./permissions.js";
 import { closeTicket } from "./ticketManager.js";
 import { computeStaffStatus, staffStatusLine } from "./staffStatus.js";
 import { applyDecision, buildApplicationMessage } from "./applications.js";
+import { alertAdmins } from "./preflight.js";
 import { logger } from "./logger.js";
+
+/** Thrown for panel/config problems an admin has to fix — no point retrying. */
+class UnrecoverableJobError extends Error {}
 
 let running = false;
 let timer: NodeJS.Timeout | null = null;
@@ -44,6 +48,67 @@ async function textChannel(
     guild.channels.cache.get(channelId) ??
     (await guild.channels.fetch(channelId).catch(() => null));
   return ch && ch.type === ChannelType.GuildText ? (ch as TextChannel) : null;
+}
+
+/**
+ * Resolve a panel's target channel, classifying why it failed so the caller can
+ * tell "an admin must fix this" (stop retrying, drop the panel to draft) apart
+ * from "might be transient / a permission they can grant" (keep retrying).
+ */
+async function resolvePanelChannel(
+  client: Client,
+  guildId: string,
+  channelId: string | null | undefined,
+): Promise<TextChannel> {
+  if (!channelId) {
+    throw new UnrecoverableJobError(
+      "no channel is selected for it. Open the panel in the dashboard, pick a channel, and publish again.",
+    );
+  }
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) throw new Error(`guild ${guildId} unavailable`);
+
+  const cached = guild.channels.cache.get(channelId);
+  if (cached) {
+    if (cached.type !== ChannelType.GuildText) {
+      throw new UnrecoverableJobError(
+        `its target channel (${cached}) isn't a text channel. Point the panel at a normal text channel and publish again.`,
+      );
+    }
+    return cached as TextChannel;
+  }
+
+  try {
+    const fetched = await guild.channels.fetch(channelId);
+    if (!fetched) {
+      throw new UnrecoverableJobError(
+        "its target channel no longer exists. Pick a new channel in the dashboard and publish again.",
+      );
+    }
+    if (fetched.type !== ChannelType.GuildText) {
+      throw new UnrecoverableJobError(
+        `its target channel (${fetched}) isn't a text channel. Point the panel at a normal text channel and publish again.`,
+      );
+    }
+    return fetched as TextChannel;
+  } catch (err) {
+    if (err instanceof UnrecoverableJobError) throw err;
+    const code = (err as { code?: number }).code;
+    // 10003 Unknown Channel — it was deleted.
+    if (code === 10003) {
+      throw new UnrecoverableJobError(
+        "its target channel was deleted. Pick a new channel in the dashboard and publish again.",
+      );
+    }
+    // 50001 Missing Access — the channel exists but the bot can't see it. This
+    // is fixable by granting a permission, so let it retry.
+    if (code === 50001) {
+      throw new Error(
+        "the bot can't see its target channel. Give the bot the View Channel permission there, then re-post the panel.",
+      );
+    }
+    throw err;
+  }
 }
 
 async function handleRepostOrEdit(
@@ -64,8 +129,28 @@ async function handleRepostOrEdit(
   const components = buildPanelComponents(panel, categories, guild.name);
   const cfg = repos.guildConfig.getGuildConfig(db, panel.guildId);
   const statusLine = staffStatusLine(computeStaffStatus(cfg));
-  const channel = await textChannel(client, panel.guildId, panel.channelId);
-  if (!channel) throw new Error("panel has no valid target channel");
+
+  const panelName = panel.embed.title
+    ? `“${panel.embed.title}”`
+    : `Panel #${panel.id}`;
+
+  let channel: TextChannel;
+  try {
+    channel = await resolvePanelChannel(client, panel.guildId, panel.channelId);
+  } catch (err) {
+    if (err instanceof UnrecoverableJobError) {
+      // Stop the panel from re-queuing this forever, and tell the admins once.
+      repos.panels.updatePanel(db, panel.id, { status: "draft" });
+      await alertAdmins(
+        guild,
+        cfg,
+        `${panelName} couldn't be posted because ${err.message} It's been set back to a draft for now.`,
+      );
+      logger.warn(`panel ${panel.id} demoted to draft — ${err.message}`);
+      return;
+    }
+    throw err;
+  }
 
   const perms = guild.members.me
     ? channel.permissionsFor(guild.members.me)
@@ -77,8 +162,23 @@ async function handleRepostOrEdit(
       PermissionFlagsBits.EmbedLinks,
     ])
   ) {
+    const missing = (
+      [
+        [PermissionFlagsBits.ViewChannel, "View Channel"],
+        [PermissionFlagsBits.SendMessages, "Send Messages"],
+        [PermissionFlagsBits.EmbedLinks, "Embed Links"],
+      ] as const
+    )
+      .filter(([flag]) => !perms?.has(flag))
+      .map(([, label]) => label)
+      .join(", ");
+    await alertAdmins(
+      guild,
+      cfg,
+      `${panelName} can't be posted in ${channel} — the bot is missing: ${missing}. Grant those in that channel's permissions, then re-post the panel.`,
+    );
     throw new Error(
-      `Missing View Channel / Send Messages / Embed Links permission in #${channel.name} — grant the bot access to that channel.`,
+      `missing ${missing} in #${channel.name} for panel ${panel.id}`,
     );
   }
 
