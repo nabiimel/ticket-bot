@@ -26,7 +26,7 @@ export default async function GuildPicker({
   let guilds: Awaited<ReturnType<typeof getManageableGuilds>> = [];
   let discordDown = false;
   if (isDev) {
-    // No Discord token — the roster is every server the bot is in.
+    // Developer — show every server the bot is in, not just their own.
     guilds = presentGuilds.map((g) => ({
       id: g.guildId,
       name: g.name ?? g.guildId,

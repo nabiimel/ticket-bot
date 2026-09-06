@@ -1,32 +1,34 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { devPasswordMatches } from "./dev-session";
+import { devDiscordIds, isDevDiscordId } from "./dev-session";
 
-const ORIGINAL = process.env.DEV_LOGIN_PASSWORD;
+const ORIGINAL = process.env.DEV_DISCORD_IDS;
 
 afterEach(() => {
-  if (ORIGINAL === undefined) delete process.env.DEV_LOGIN_PASSWORD;
-  else process.env.DEV_LOGIN_PASSWORD = ORIGINAL;
+  if (ORIGINAL === undefined) delete process.env.DEV_DISCORD_IDS;
+  else process.env.DEV_DISCORD_IDS = ORIGINAL;
 });
 
-describe("devPasswordMatches", () => {
-  it("is always false when no secret is configured", () => {
-    delete process.env.DEV_LOGIN_PASSWORD;
-    expect(devPasswordMatches("")).toBe(false);
-    expect(devPasswordMatches("anything")).toBe(false);
+describe("dev-session", () => {
+  it("grants nobody when unset", () => {
+    delete process.env.DEV_DISCORD_IDS;
+    expect(devDiscordIds().size).toBe(0);
+    expect(isDevDiscordId("123")).toBe(false);
+    expect(isDevDiscordId(undefined)).toBe(false);
+    expect(isDevDiscordId(null)).toBe(false);
   });
 
-  it("matches only the exact secret", () => {
-    process.env.DEV_LOGIN_PASSWORD = "s3cret-value-123";
-    expect(devPasswordMatches("s3cret-value-123")).toBe(true);
-    expect(devPasswordMatches("s3cret-value-124")).toBe(false);
-    expect(devPasswordMatches("s3cret-value-123 ")).toBe(false);
-    expect(devPasswordMatches("")).toBe(false);
+  it("parses comma- and space-separated ids", () => {
+    process.env.DEV_DISCORD_IDS = " 111,222   333 , 444 ";
+    expect([...devDiscordIds()].sort()).toEqual(["111", "222", "333", "444"]);
+    expect(isDevDiscordId("222")).toBe(true);
+    expect(isDevDiscordId("999")).toBe(false);
+    expect(isDevDiscordId("")).toBe(false);
   });
 
-  it("does not throw on non-string input", () => {
-    process.env.DEV_LOGIN_PASSWORD = "x";
-    expect(devPasswordMatches(undefined)).toBe(false);
-    expect(devPasswordMatches(123)).toBe(false);
-    expect(devPasswordMatches(null)).toBe(false);
+  it("takes effect without any restart/re-import (reads env each call)", () => {
+    process.env.DEV_DISCORD_IDS = "";
+    expect(isDevDiscordId("777")).toBe(false);
+    process.env.DEV_DISCORD_IDS = "777";
+    expect(isDevDiscordId("777")).toBe(true);
   });
 });

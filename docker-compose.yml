@@ -63,7 +63,7 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       BOT_INTERNAL_URL: http://bot:8787
       INTERNAL_WAKE_SECRET: ${INTERNAL_WAKE_SECRET}
-      DEV_LOGIN_PASSWORD: ${DEV_LOGIN_PASSWORD:-}
+      DEV_DISCORD_IDS: ${DEV_DISCORD_IDS:-}
     volumes:
       - ticketbot-data:/data
     ports:

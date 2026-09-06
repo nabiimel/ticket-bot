@@ -1,11 +1,6 @@
 import NextAuth from "next-auth";
 import Discord from "next-auth/providers/discord";
-import Credentials from "next-auth/providers/credentials";
-import {
-  DEV_LOGIN_ENABLED,
-  devLoginThrottled,
-  devPasswordMatches,
-} from "@/lib/dev-session";
+import { isDevDiscordId } from "@/lib/dev-session";
 
 const DISCORD_TOKEN_URL = "https://discord.com/api/v10/oauth2/token";
 
@@ -44,28 +39,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.DISCORD_CLIENT_SECRET,
       authorization: { params: { scope: "identify guilds" } },
     }),
-    // Operator back-door — inert unless DEV_LOGIN_PASSWORD is set. See lib/dev-session.ts.
-    Credentials({
-      id: "dev",
-      name: "Developer",
-      credentials: { password: { label: "Password", type: "password" } },
-      authorize(credentials) {
-        if (!DEV_LOGIN_ENABLED) return null;
-        if (devLoginThrottled()) return null;
-        if (!devPasswordMatches(credentials?.password)) return null;
-        return { id: "dev", name: "Developer", dev: true };
-      },
-    }),
   ],
   callbacks: {
-    async jwt({ token, account, profile, user }) {
-      // Developer session — no Discord token, never expires here, skip refresh.
-      if (user && (user as { dev?: boolean }).dev) token.dev = true;
-      if (token.dev) {
-        delete token.error;
-        return token;
-      }
-
+    async jwt({ token, account, profile }) {
       // Initial sign-in.
       if (account?.access_token) {
         token.accessToken = account.access_token;
@@ -103,15 +79,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      if (token.dev) {
-        session.dev = true;
-        if (session.user) session.user.dev = true;
-        return session;
-      }
       session.accessToken = token.accessToken as string | undefined;
       session.error = token.error as string | undefined;
+      const discordId = token.discordId as string | undefined;
+      // Re-checked every request so the allowlist takes effect without re-login.
+      const dev = isDevDiscordId(discordId);
+      session.dev = dev;
       if (session.user) {
-        session.user.discordId = token.discordId as string | undefined;
+        session.user.discordId = discordId;
+        session.user.dev = dev;
       }
       return session;
     },
