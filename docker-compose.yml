@@ -64,6 +64,7 @@ services:
       BOT_INTERNAL_URL: http://bot:8787
       INTERNAL_WAKE_SECRET: ${INTERNAL_WAKE_SECRET}
       DEV_DISCORD_IDS: ${DEV_DISCORD_IDS:-}
+      ROBLOX_STOCK_SECRET: ${ROBLOX_STOCK_SECRET:-}
     volumes:
       - ticketbot-data:/data
     ports:

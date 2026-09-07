@@ -110,6 +110,7 @@ export default async function ReservationsPage({
         snippets={snippets}
         rate={rate}
         budget={cfg.reservationsRobuxBudget}
+        stockSyncedAt={cfg.reservationsStockSyncedAt}
       />
     </div>
   );

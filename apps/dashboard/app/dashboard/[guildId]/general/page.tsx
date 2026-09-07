@@ -7,6 +7,7 @@ import {
   getGuildRoles,
   textChannels,
 } from "@/lib/discord";
+import { STOCK_SYNC_ENABLED } from "@/lib/stock-sync";
 import { GeneralForm } from "@/components/GeneralForm";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -43,6 +44,8 @@ export default async function GeneralPage({
       <GeneralForm
         guildId={guildId}
         cfg={cfg}
+        stockSyncEnabled={STOCK_SYNC_ENABLED}
+        appOrigin={process.env.NEXTAUTH_URL ?? ""}
         roles={roles.map((r) => ({ id: r.id, name: r.name }))}
         sellerOptions={sellerOptions}
         textChannels={textChannels(channels).map((c) => ({

@@ -30,6 +30,7 @@ describe("migrations", () => {
       "013_reservations",
       "014_ping_guard",
       "015_reservations_robux",
+      "016_reservations_stock",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
@@ -306,10 +307,14 @@ describe("guildConfig repo", () => {
     repos.guildConfig.updateGuildConfig(db, "g1", {
       reservationsRobuxBudget: 10000,
       reservationsDiscountPct: 25,
+      reservationsStockChannelId: "999888777666555444",
+      reservationsStockSyncedAt: 1700000000,
     });
     const c = repos.guildConfig.getGuildConfig(db, "g1");
     expect(c.reservationsRobuxBudget).toBe(10000);
     expect(c.reservationsDiscountPct).toBe(25);
+    expect(c.reservationsStockChannelId).toBe("999888777666555444");
+    expect(c.reservationsStockSyncedAt).toBe(1700000000);
   });
 });
 

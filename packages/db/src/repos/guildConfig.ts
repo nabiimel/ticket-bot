@@ -67,6 +67,8 @@ function map(r: any): GuildConfig {
     reservationsRerollUnit: r.reservations_reroll_unit ?? 50,
     reservationsRobuxPerUnit: r.reservations_robux_per_unit ?? 150,
     reservationsDiscountPct: r.reservations_discount_pct ?? 20,
+    reservationsStockChannelId: r.reservations_stock_channel_id ?? null,
+    reservationsStockSyncedAt: r.reservations_stock_synced_at ?? null,
     suspended: !!r.suspended,
   };
 }
@@ -102,6 +104,8 @@ function defaults(guildId: string): GuildConfig {
     reservationsRerollUnit: 50,
     reservationsRobuxPerUnit: 150,
     reservationsDiscountPct: 20,
+    reservationsStockChannelId: null,
+    reservationsStockSyncedAt: null,
     suspended: false,
   };
 }
@@ -151,6 +155,8 @@ const COLUMN_MAP: Record<string, string> = {
   reservationsRerollUnit: "reservations_reroll_unit",
   reservationsRobuxPerUnit: "reservations_robux_per_unit",
   reservationsDiscountPct: "reservations_discount_pct",
+  reservationsStockChannelId: "reservations_stock_channel_id",
+  reservationsStockSyncedAt: "reservations_stock_synced_at",
   suspended: "suspended",
 };
 

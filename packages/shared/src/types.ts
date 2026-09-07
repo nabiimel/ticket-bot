@@ -160,6 +160,10 @@ export interface GuildConfig {
   reservationsRobuxPerUnit: number;
   /** Seller's Roblox Premium discount, whole percent (default 20). */
   reservationsDiscountPct: number;
+  /** Channel where the bot announces Robux restocks. */
+  reservationsStockChannelId: string | null;
+  /** Unix seconds of the last balance push from the seller's pusher. */
+  reservationsStockSyncedAt: number | null;
   /** Host kill-switch: blocks ticket opening, jobs, sweeps and dashboard writes. */
   suspended: boolean;
 }
@@ -353,7 +357,8 @@ export type JobType =
   | "repost_application"
   | "decide_application"
   | "reservation_done"
-  | "reservation_bulk_snippet";
+  | "reservation_bulk_snippet"
+  | "post_stock_update";
 
 export type JobStatus = "pending" | "done" | "error";
 
@@ -404,6 +409,12 @@ export interface DecideApplicationPayload {
 export interface ReservationDonePayload {
   reservationId: number;
   staffId: string;
+}
+export interface PostStockUpdatePayload {
+  /** New balance in Robux. */
+  robux: number;
+  /** Budget before this push (to show the delta). */
+  previous: number;
 }
 export interface ReservationBulkSnippetPayload {
   reservationIds: number[];

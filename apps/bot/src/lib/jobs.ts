@@ -15,6 +15,7 @@ import type {
   PostPreviewPayload,
   RepostApplicationPayload,
   RepostPanelPayload,
+  PostStockUpdatePayload,
   ReservationBulkSnippetPayload,
   ReservationDonePayload,
   SyncTicketPermsPayload,
@@ -406,6 +407,31 @@ async function handleReservationDone(
     .catch((err) => logger.warn("reservation_done log post failed", err));
 }
 
+async function handlePostStockUpdate(
+  client: Client,
+  job: JobRecord<PostStockUpdatePayload>,
+) {
+  const db = getDb();
+  const cfg = repos.guildConfig.getGuildConfig(db, job.guildId);
+  const channel = await textChannel(
+    client,
+    job.guildId,
+    cfg.reservationsStockChannelId ?? cfg.logChannelId,
+  );
+  if (!channel) return;
+
+  const { robux, previous } = job.payload;
+  const delta = robux - previous;
+  const nf = (n: number) => n.toLocaleString("en-US");
+  const line =
+    delta > 0
+      ? `📦 **Robux restocked** — +${nf(delta)} → **${nf(robux)}** available`
+      : `📦 **Robux stock** — **${nf(robux)}** available`;
+  await channel
+    .send({ content: line, allowedMentions: { parse: [] } })
+    .catch((err) => logger.warn("post_stock_update failed", err));
+}
+
 async function handleReservationBulkSnippet(
   client: Client,
   job: JobRecord<ReservationBulkSnippetPayload>,
@@ -551,6 +577,12 @@ async function processOne(client: Client, job: JobRecord): Promise<void> {
       await handleReservationBulkSnippet(
         client,
         job as JobRecord<ReservationBulkSnippetPayload>,
+      );
+      break;
+    case "post_stock_update":
+      await handlePostStockUpdate(
+        client,
+        job as JobRecord<PostStockUpdatePayload>,
       );
       break;
     default:

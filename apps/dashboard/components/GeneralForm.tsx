@@ -13,6 +13,7 @@ import { SubmitButton } from "./SubmitButton";
 import { FieldError } from "./FormFeedback";
 import { FormToast } from "./FormToast";
 import { Combobox } from "./Combobox";
+import { StockSyncGuide } from "./StockSyncGuide";
 import { useUnsavedChanges } from "@/lib/dirty-store";
 
 type Opt = { id: string; name: string };
@@ -63,6 +64,8 @@ const minToHM = (min: number) =>
 export function GeneralForm({
   guildId,
   cfg,
+  stockSyncEnabled,
+  appOrigin,
   roles,
   sellerOptions,
   textChannels,
@@ -70,6 +73,8 @@ export function GeneralForm({
 }: {
   guildId: string;
   cfg: GuildConfig;
+  stockSyncEnabled: boolean;
+  appOrigin: string;
   roles: Opt[];
   sellerOptions: Opt[];
   textChannels: Opt[];
@@ -93,6 +98,9 @@ export function GeneralForm({
     robuxPerUnit: cfg.reservationsRobuxPerUnit,
     discountPct: cfg.reservationsDiscountPct,
   });
+  const [stockChannelId, setStockChannel] = useState(
+    cfg.reservationsStockChannelId,
+  );
   const [dirty, setDirty] = useState(false);
 
   useUnsavedChanges(dirty);
@@ -421,6 +429,29 @@ export function GeneralForm({
           </span>{" "}
           (after {rate.discountPct || 0}% off).
         </p>
+
+        <div className="border-t border-line pt-4">
+          <label className="label">Robux stock channel</label>
+          <Combobox
+            name="reservationsStockChannelId"
+            options={textChannels}
+            value={stockChannelId}
+            onChange={combo(setStockChannel)}
+            invalid={!!state?.fieldErrors?.reservationsStockChannelId}
+          />
+          <p className="mt-1 text-xs text-faint">
+            Where the bot posts a line when the seller&apos;s balance goes up.
+            Falls back to the log channel.
+          </p>
+          <FieldError state={state} name="reservationsStockChannelId" />
+          <div className="mt-3">
+            <StockSyncGuide
+              guildId={guildId}
+              appOrigin={appOrigin}
+              enabled={stockSyncEnabled}
+            />
+          </div>
+        </div>
       </section>
 
       <section className="space-y-5">

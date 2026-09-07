@@ -13,6 +13,8 @@ const schema = z.object({
   INTERNAL_WAKE_SECRET: z.string().optional(),
   // Comma/space-separated Discord user ids with all-servers admin. Unset = none.
   DEV_DISCORD_IDS: z.string().optional(),
+  // Shared secret for the seller's Robux stock pusher. Unset = /api/roblox-stock off.
+  ROBLOX_STOCK_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof schema>;

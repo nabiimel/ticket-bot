@@ -37,6 +37,7 @@ export function ReservationsTable({
   snippets,
   rate,
   budget,
+  stockSyncedAt,
 }: {
   guildId: string;
   tab: ReservationStatus | "all";
@@ -44,6 +45,7 @@ export function ReservationsTable({
   snippets: { id: number; name: string }[];
   rate: RobuxRate;
   budget: number;
+  stockSyncedAt: number | null;
 }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -293,9 +295,17 @@ export function ReservationsTable({
           </span>
         </div>
         <div className="grow" />
-        <span className="text-xs text-faint">
-          {rate.rerollUnit} rerolls = {nf.format(costOf(rate.rerollUnit))} Robux
-        </span>
+        <div className="flex flex-col items-end gap-0.5 text-xs text-faint">
+          <span>
+            {rate.rerollUnit} rerolls = {nf.format(costOf(rate.rerollUnit))}{" "}
+            Robux
+          </span>
+          {stockSyncedAt != null && (
+            <span title={new Date(stockSyncedAt * 1000).toLocaleString()}>
+              stock synced {fmtAgo(stockSyncedAt)}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

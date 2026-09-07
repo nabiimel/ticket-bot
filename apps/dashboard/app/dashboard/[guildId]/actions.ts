@@ -212,6 +212,7 @@ export async function saveGeneral(
     "transcriptChannelId",
     "defaultStaffRoleId",
     "archiveCategoryId",
+    "reservationsStockChannelId",
   ] as const) {
     const v = str(k);
     if (v && !SNOWFLAKE.test(v)) fieldErrors[k] = "Invalid selection";
@@ -247,6 +248,7 @@ export async function saveGeneral(
     reservationsRerollUnit,
     reservationsRobuxPerUnit,
     reservationsDiscountPct,
+    reservationsStockChannelId: str("reservationsStockChannelId"),
   };
   const GEN_LABELS: Record<string, string> = {
     logChannelId: "log channel",
@@ -273,6 +275,7 @@ export async function saveGeneral(
     reservationsRerollUnit: "reroll batch size",
     reservationsRobuxPerUnit: "Robux per batch",
     reservationsDiscountPct: "Premium discount",
+    reservationsStockChannelId: "stock channel",
   };
   const genChanged = Object.keys(next)
     .filter(
