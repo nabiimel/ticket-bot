@@ -145,6 +145,34 @@ export async function saveGeneral(
     fieldErrors.pingGuardSellerId = "Invalid selection";
   }
 
+  // --- Reservations pricing ---
+  const reservationsRerollUnit = Number(str("reservationsRerollUnit") ?? 50);
+  const reservationsRobuxPerUnit = Number(
+    str("reservationsRobuxPerUnit") ?? 150,
+  );
+  const reservationsDiscountPct = Number(str("reservationsDiscountPct") ?? 20);
+  if (
+    !Number.isInteger(reservationsRerollUnit) ||
+    reservationsRerollUnit < 1 ||
+    reservationsRerollUnit > 10000
+  ) {
+    fieldErrors.reservationsRerollUnit = "Enter a whole number from 1 to 10000";
+  }
+  if (
+    !Number.isInteger(reservationsRobuxPerUnit) ||
+    reservationsRobuxPerUnit < 1 ||
+    reservationsRobuxPerUnit > 1_000_000
+  ) {
+    fieldErrors.reservationsRobuxPerUnit = "Enter a whole number of Robux";
+  }
+  if (
+    !Number.isInteger(reservationsDiscountPct) ||
+    reservationsDiscountPct < 0 ||
+    reservationsDiscountPct > 100
+  ) {
+    fieldErrors.reservationsDiscountPct = "Enter a percent from 0 to 100";
+  }
+
   // --- Staff hours ---
   const staffStatusEnabled = form.get("staffStatusEnabled") === "on";
   const ovRaw = str("staffOverride");
@@ -216,6 +244,9 @@ export async function saveGeneral(
     pingGuardSellerId,
     pingGuardMaxPings,
     pingGuardWindowSecs,
+    reservationsRerollUnit,
+    reservationsRobuxPerUnit,
+    reservationsDiscountPct,
   };
   const GEN_LABELS: Record<string, string> = {
     logChannelId: "log channel",
@@ -239,6 +270,9 @@ export async function saveGeneral(
     pingGuardSellerId: "ping guard seller",
     pingGuardMaxPings: "ping guard threshold",
     pingGuardWindowSecs: "ping guard window",
+    reservationsRerollUnit: "reroll batch size",
+    reservationsRobuxPerUnit: "Robux per batch",
+    reservationsDiscountPct: "Premium discount",
   };
   const genChanged = Object.keys(next)
     .filter(
@@ -1081,32 +1115,39 @@ export async function setDashboardGrant(
 function cleanNote(v: unknown): string {
   return typeof v === "string" ? v.trim().slice(0, 500) : "";
 }
+function cleanName(v: unknown): string {
+  return typeof v === "string" ? v.trim().slice(0, 120) : "";
+}
 function cleanQty(v: unknown): number {
   const n = Math.trunc(Number(v));
-  return Number.isFinite(n) ? Math.min(Math.max(n, 1), 9999) : 1;
+  return Number.isFinite(n) ? Math.min(Math.max(n, 0), 100000) : 0;
 }
 
 /** Add a walk-in buyer who didn't open a ticket. */
 export async function addReservation(
   guildId: string,
-  input: { buyerTag: string; note?: string; qty?: number },
+  input: {
+    gakuranName: string;
+    robloxUser?: string;
+    note?: string;
+    qty?: number;
+  },
 ) {
   const { userId } = await requireGuildAccess(guildId);
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
-  const buyerTag =
-    typeof input.buyerTag === "string"
-      ? input.buyerTag.trim().slice(0, 80)
-      : "";
-  if (!buyerTag) return { ok: false, error: "Enter a name" };
+  const gakuranName = cleanName(input.gakuranName);
+  if (!gakuranName) return { ok: false, error: "Enter a Gakuran name" };
 
   const r = repos.reservations.createReservation(db(), {
     guildId,
-    buyerTag,
+    buyerTag: gakuranName,
+    gakuranName,
+    robloxUser: cleanName(input.robloxUser),
     note: cleanNote(input.note),
     qty: cleanQty(input.qty),
     addedBy: userId,
   });
-  audit(guildId, userId, "reservation.add", `Added walk-in “${buyerTag}”`);
+  audit(guildId, userId, "reservation.add", `Added walk-in “${gakuranName}”`);
   rev(guildId);
   return { ok: true, id: r.id };
 }
@@ -1143,7 +1184,13 @@ export async function setReservationDone(
 export async function updateReservation(
   guildId: string,
   id: number,
-  patch: { note?: string; qty?: number },
+  patch: {
+    note?: string;
+    qty?: number;
+    gakuranName?: string;
+    robloxUser?: string;
+    paid?: boolean;
+  },
 ) {
   await requireGuildAccess(guildId);
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
@@ -1154,7 +1201,30 @@ export async function updateReservation(
   repos.reservations.updateReservation(db(), id, {
     ...(patch.note !== undefined ? { note: cleanNote(patch.note) } : {}),
     ...(patch.qty !== undefined ? { qty: cleanQty(patch.qty) } : {}),
+    ...(patch.gakuranName !== undefined
+      ? { gakuranName: cleanName(patch.gakuranName) }
+      : {}),
+    ...(patch.robloxUser !== undefined
+      ? { robloxUser: cleanName(patch.robloxUser) }
+      : {}),
+    ...(patch.paid !== undefined ? { paid: !!patch.paid } : {}),
   });
+  rev(guildId);
+  return { ok: true };
+}
+
+/** Set the seller's Robux budget shown on the Reservations page. */
+export async function setReservationsBudget(guildId: string, budget: number) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const n = Math.trunc(Number(budget));
+  if (!Number.isFinite(n) || n < 0 || n > 100_000_000) {
+    return { ok: false, error: "Enter a whole number of Robux" };
+  }
+  repos.guildConfig.updateGuildConfig(db(), guildId, {
+    reservationsRobuxBudget: n,
+  });
+  audit(guildId, userId, "reservation.budget", `Set Robux budget to ${n}`);
   rev(guildId);
   return { ok: true };
 }

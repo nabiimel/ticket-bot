@@ -152,6 +152,14 @@ export interface GuildConfig {
   pingGuardMaxPings: number;
   /** Rolling window, in seconds, that `pingGuardMaxPings` is measured over. */
   pingGuardWindowSecs: number;
+  /** Seller's Robux budget shown on the Reservations page. */
+  reservationsRobuxBudget: number;
+  /** Rerolls per Robux pricing batch (default 50). */
+  reservationsRerollUnit: number;
+  /** List Robux price for one batch (default 150). */
+  reservationsRobuxPerUnit: number;
+  /** Seller's Roblox Premium discount, whole percent (default 20). */
+  reservationsDiscountPct: number;
   /** Host kill-switch: blocks ticket opening, jobs, sweeps and dashboard writes. */
   suspended: boolean;
 }
@@ -421,8 +429,15 @@ export interface ReservationRecord {
   buyerUserId: string | null;
   /** Display name captured when the row was created. */
   buyerTag: string;
+  /** In-game / Gakuran name (from the ticket form, or typed for a walk-in). */
+  gakuranName: string;
+  /** Roblox username (from the ticket form). */
+  robloxUser: string;
   note: string;
+  /** Number of rerolls reserved. */
   qty: number;
+  /** Whether the buyer has paid for this reservation. */
+  paid: boolean;
   status: ReservationStatus;
   addedBy: string | null;
   addedAt: number;

@@ -10,6 +10,23 @@ import {
 import { isStaff } from "../lib/permissions.js";
 import { logger } from "../lib/logger.js";
 
+/** Pull a value out of the ticket form by matching the field key or label. */
+function pickFormValue(
+  responses: { fieldKey: string; fieldLabel: string; value: string }[],
+  test: RegExp,
+): string {
+  const hit = responses.find(
+    (r) => test.test(r.fieldKey) || test.test(r.fieldLabel),
+  );
+  return hit?.value?.trim() ?? "";
+}
+
+/** First run of digits in a string, as a number (e.g. "50 rerolls" -> 50). */
+function firstInt(s: string): number {
+  const m = s.replace(/,/g, "").match(/\d+/);
+  return m ? Math.min(parseInt(m[0], 10), 100000) : 0;
+}
+
 const reserveButton: ButtonHandler = {
   prefix: "reserve",
   async run(interaction: ButtonInteraction) {
@@ -56,12 +73,27 @@ const reserveButton: ButtonHandler = {
     const buyerTag =
       buyer?.displayName ?? buyer?.user.username ?? ticket.openerId;
 
+    // Pull Roblox name / Gakuran name / reroll count from the ticket's form.
+    const responses = repos.tickets.getFormResponses(db, ticket.id);
+    const robloxUser = pickFormValue(responses, /roblox/i);
+    const gakuranName =
+      pickFormValue(responses, /gakuran/i) ||
+      pickFormValue(responses, /\bign\b|in.?game.?name/i);
+    const rerollAnswer = pickFormValue(
+      responses,
+      /re-?roll|\brr'?s?\b|how many/i,
+    );
+    const qty = firstInt(rerollAnswer);
+
     repos.reservations.createReservation(db, {
       guildId: ticket.guildId,
       ticketId: ticket.id,
       channelId: ticket.channelId,
       buyerUserId: ticket.openerId,
       buyerTag,
+      gakuranName,
+      robloxUser,
+      qty,
       addedBy: interaction.user.id,
     });
 

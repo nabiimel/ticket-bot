@@ -1,5 +1,9 @@
 import Link from "next/link";
-import type { ReservationStatus } from "@ticketbot/shared";
+import {
+  robuxCost,
+  type ReservationStatus,
+  type RobuxRate,
+} from "@ticketbot/shared";
 import { db, repos } from "@/lib/db";
 import { requireGuildAccess } from "@/lib/guild-access";
 import { getGuildMemberNames } from "@/lib/discord";
@@ -24,16 +28,20 @@ export default async function ReservationsPage({
     ? (searchParams.status as ReservationStatus | "all")
     : "open";
 
+  const cfg = repos.guildConfig.getGuildConfig(db(), guildId);
+  const rate: RobuxRate = {
+    rerollUnit: cfg.reservationsRerollUnit,
+    robuxPerUnit: cfg.reservationsRobuxPerUnit,
+    discountPct: cfg.reservationsDiscountPct,
+  };
+
+  // Fetch every row; the table filters by tab client-side so the budget line
+  // and per-row Robux stay live while editing.
   const rows = repos.reservations.listReservations(db(), guildId, {
-    status: status === "all" ? undefined : status,
-    limit: 1000,
+    limit: 2000,
   });
   const openCount = repos.reservations.countOpen(db(), guildId);
-  const snippets = repos.snippets
-    .listSnippets(db(), guildId)
-    .map((s) => ({ id: s.id, name: s.name }));
 
-  // Resolve ticket numbers for the "From" column.
   const ticketNo = new Map<number, number>();
   for (const r of rows) {
     if (r.ticketId != null && !ticketNo.has(r.ticketId)) {
@@ -49,6 +57,10 @@ export default async function ReservationsPage({
     /* offline — fall back to the captured tag */
   }
 
+  const snippets = repos.snippets
+    .listSnippets(db(), guildId)
+    .map((s) => ({ id: s.id, name: s.name }));
+
   const data = rows.map((r) => ({
     ...r,
     buyerName:
@@ -57,13 +69,14 @@ export default async function ReservationsPage({
     doneByName: r.doneBy ? (names.get(r.doneBy) ?? null) : null,
     ticketNumber:
       r.ticketId != null ? (ticketNo.get(r.ticketId) ?? null) : null,
+    robuxCost: robuxCost(r.qty, rate),
   }));
 
   return (
     <div className="page">
       <PageHeader
         title="Reservations"
-        description="Buyers waiting to be handed their order. Tick them off when done."
+        description="Reroll orders and how much Robux each one commits."
       >
         <a
           className="btn-secondary"
@@ -95,6 +108,8 @@ export default async function ReservationsPage({
         tab={status}
         rows={data}
         snippets={snippets}
+        rate={rate}
+        budget={cfg.reservationsRobuxBudget}
       />
     </div>
   );

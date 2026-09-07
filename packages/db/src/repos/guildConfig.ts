@@ -63,6 +63,10 @@ function map(r: any): GuildConfig {
     pingGuardSellerId: r.ping_guard_seller_id ?? null,
     pingGuardMaxPings: r.ping_guard_max_pings ?? 3,
     pingGuardWindowSecs: r.ping_guard_window_secs ?? 60,
+    reservationsRobuxBudget: r.reservations_robux_budget ?? 0,
+    reservationsRerollUnit: r.reservations_reroll_unit ?? 50,
+    reservationsRobuxPerUnit: r.reservations_robux_per_unit ?? 150,
+    reservationsDiscountPct: r.reservations_discount_pct ?? 20,
     suspended: !!r.suspended,
   };
 }
@@ -94,6 +98,10 @@ function defaults(guildId: string): GuildConfig {
     pingGuardSellerId: null,
     pingGuardMaxPings: 3,
     pingGuardWindowSecs: 60,
+    reservationsRobuxBudget: 0,
+    reservationsRerollUnit: 50,
+    reservationsRobuxPerUnit: 150,
+    reservationsDiscountPct: 20,
     suspended: false,
   };
 }
@@ -139,6 +147,10 @@ const COLUMN_MAP: Record<string, string> = {
   pingGuardSellerId: "ping_guard_seller_id",
   pingGuardMaxPings: "ping_guard_max_pings",
   pingGuardWindowSecs: "ping_guard_window_secs",
+  reservationsRobuxBudget: "reservations_robux_budget",
+  reservationsRerollUnit: "reservations_reroll_unit",
+  reservationsRobuxPerUnit: "reservations_robux_per_unit",
+  reservationsDiscountPct: "reservations_discount_pct",
   suspended: "suspended",
 };
 

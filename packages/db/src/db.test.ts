@@ -29,6 +29,7 @@ describe("migrations", () => {
       "012_applications",
       "013_reservations",
       "014_ping_guard",
+      "015_reservations_robux",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
@@ -72,6 +73,39 @@ describe("reservations repo", () => {
 
     repos.reservations.deleteReservation(db, r.id);
     expect(repos.reservations.getReservation(db, r.id)).toBeNull();
+  });
+
+  it("round-trips gakuran / roblox / paid and sums rerolls", () => {
+    const db = freshDb();
+    const a = repos.reservations.createReservation(db, {
+      guildId: "g1",
+      buyerTag: "Aki",
+      gakuranName: "Aki",
+      robloxUser: "aki_rblx",
+      qty: 50,
+    });
+    expect(a.gakuranName).toBe("Aki");
+    expect(a.robloxUser).toBe("aki_rblx");
+    expect(a.paid).toBe(false);
+    expect(a.qty).toBe(50);
+
+    repos.reservations.updateReservation(db, a.id, {
+      paid: true,
+      qty: 100,
+      robloxUser: "aki2",
+    });
+    const a2 = repos.reservations.getReservation(db, a.id)!;
+    expect(a2.paid).toBe(true);
+    expect(a2.qty).toBe(100);
+    expect(a2.robloxUser).toBe("aki2");
+
+    repos.reservations.createReservation(db, {
+      guildId: "g1",
+      buyerTag: "Ben",
+      gakuranName: "Ben",
+      qty: 150,
+    });
+    expect(repos.reservations.sumRerolls(db, "g1")).toBe(250);
   });
 });
 
@@ -259,6 +293,23 @@ describe("guildConfig repo", () => {
     expect(c.pingGuardSellerId).toBe("123456789012345678");
     expect(c.pingGuardMaxPings).toBe(5);
     expect(c.pingGuardWindowSecs).toBe(90);
+  });
+
+  it("round-trips reservations pricing config", () => {
+    const db = freshDb();
+    const d = repos.guildConfig.getGuildConfig(db, "g1");
+    expect(d.reservationsRobuxBudget).toBe(0);
+    expect(d.reservationsRerollUnit).toBe(50);
+    expect(d.reservationsRobuxPerUnit).toBe(150);
+    expect(d.reservationsDiscountPct).toBe(20);
+
+    repos.guildConfig.updateGuildConfig(db, "g1", {
+      reservationsRobuxBudget: 10000,
+      reservationsDiscountPct: 25,
+    });
+    const c = repos.guildConfig.getGuildConfig(db, "g1");
+    expect(c.reservationsRobuxBudget).toBe(10000);
+    expect(c.reservationsDiscountPct).toBe(25);
   });
 });
 

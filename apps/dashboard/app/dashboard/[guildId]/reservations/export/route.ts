@@ -1,4 +1,8 @@
-import type { ReservationStatus } from "@ticketbot/shared";
+import {
+  robuxCost,
+  type ReservationStatus,
+  type RobuxRate,
+} from "@ticketbot/shared";
 import { db, repos } from "@/lib/db";
 import { checkGuildAccess } from "@/lib/guild-access";
 import { getGuildMemberNames } from "@/lib/discord";
@@ -30,6 +34,12 @@ export async function GET(
     status,
     limit: 2000,
   });
+  const cfg = repos.guildConfig.getGuildConfig(db(), params.guildId);
+  const rate: RobuxRate = {
+    rerollUnit: cfg.reservationsRerollUnit,
+    robuxPerUnit: cfg.reservationsRobuxPerUnit,
+    discountPct: cfg.reservationsDiscountPct,
+  };
 
   let names = new Map<string, string>();
   try {
@@ -41,10 +51,12 @@ export async function GET(
 
   const header = [
     "id",
-    "buyer",
+    "gakuran_name",
+    "roblox_user",
     "buyer_id",
-    "note",
-    "qty",
+    "rerolls",
+    "robux",
+    "paid",
     "status",
     "ticket_id",
     "added_by",
@@ -57,10 +69,12 @@ export async function GET(
     lines.push(
       [
         r.id,
-        nm(r.buyerUserId) || r.buyerTag,
+        r.gakuranName || nm(r.buyerUserId) || r.buyerTag,
+        r.robloxUser,
         r.buyerUserId,
-        r.note,
         r.qty,
+        robuxCost(r.qty, rate),
+        r.paid ? "yes" : "no",
         r.status,
         r.ticketId,
         nm(r.addedBy),

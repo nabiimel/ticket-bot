@@ -9,8 +9,11 @@ function map(r: any): ReservationRecord {
     channelId: r.channel_id ?? null,
     buyerUserId: r.buyer_user_id ?? null,
     buyerTag: r.buyer_tag ?? "",
+    gakuranName: r.gakuran_name ?? "",
+    robloxUser: r.roblox_user ?? "",
     note: r.note ?? "",
-    qty: r.qty ?? 1,
+    qty: r.qty ?? 0,
+    paid: !!r.paid,
     status: (r.status ?? "open") as ReservationStatus,
     addedBy: r.added_by ?? null,
     addedAt: r.added_at ?? 0,
@@ -56,6 +59,17 @@ export function countOpen(db: DB, guildId: string): number {
   return r?.n ?? 0;
 }
 
+/** Total rerolls across every non-cancelled reservation (for the budget line). */
+export function sumRerolls(db: DB, guildId: string): number {
+  const r = db
+    .prepare(
+      `SELECT COALESCE(SUM(qty), 0) AS n FROM reservations
+       WHERE guild_id = ? AND status != 'cancelled'`,
+    )
+    .get(guildId) as { n: number };
+  return r?.n ?? 0;
+}
+
 export function getReservation(db: DB, id: number): ReservationRecord | null {
   const r = db.prepare(`SELECT * FROM reservations WHERE id = ?`).get(id);
   return r ? map(r) : null;
@@ -76,6 +90,9 @@ export function getOpenForTicket(
   return r ? map(r) : null;
 }
 
+const clampQty = (v: number | undefined) =>
+  Math.min(Math.max(Math.trunc(v ?? 0) || 0, 0), 100000);
+
 export function createReservation(
   db: DB,
   input: {
@@ -84,8 +101,11 @@ export function createReservation(
     channelId?: string | null;
     buyerUserId?: string | null;
     buyerTag: string;
+    gakuranName?: string;
+    robloxUser?: string;
     note?: string;
     qty?: number;
+    paid?: boolean;
     addedBy?: string | null;
   },
 ): ReservationRecord {
@@ -94,8 +114,9 @@ export function createReservation(
     .prepare(
       `INSERT INTO reservations
          (guild_id, ticket_id, channel_id, buyer_user_id, buyer_tag,
-          note, qty, status, added_by, added_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
+          gakuran_name, roblox_user, note, qty, paid, status,
+          added_by, added_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
     )
     .run(
       input.guildId,
@@ -103,8 +124,11 @@ export function createReservation(
       input.channelId ?? null,
       input.buyerUserId ?? null,
       input.buyerTag,
+      (input.gakuranName ?? "").slice(0, 120),
+      (input.robloxUser ?? "").slice(0, 120),
       input.note ?? "",
-      Math.min(Math.max(Math.trunc(input.qty ?? 1), 1), 9999),
+      clampQty(input.qty),
+      input.paid ? 1 : 0,
       input.addedBy ?? null,
       ts,
       ts,
@@ -139,7 +163,13 @@ export function setStatus(
 export function updateReservation(
   db: DB,
   id: number,
-  patch: { note?: string; qty?: number },
+  patch: {
+    note?: string;
+    qty?: number;
+    gakuranName?: string;
+    robloxUser?: string;
+    paid?: boolean;
+  },
 ): ReservationRecord | null {
   const sets: string[] = [];
   const values: unknown[] = [];
@@ -149,7 +179,19 @@ export function updateReservation(
   }
   if (patch.qty !== undefined) {
     sets.push("qty = ?");
-    values.push(Math.min(Math.max(Math.trunc(patch.qty), 1), 9999));
+    values.push(clampQty(patch.qty));
+  }
+  if (patch.gakuranName !== undefined) {
+    sets.push("gakuran_name = ?");
+    values.push(patch.gakuranName.slice(0, 120));
+  }
+  if (patch.robloxUser !== undefined) {
+    sets.push("roblox_user = ?");
+    values.push(patch.robloxUser.slice(0, 120));
+  }
+  if (patch.paid !== undefined) {
+    sets.push("paid = ?");
+    values.push(patch.paid ? 1 : 0);
   }
   if (sets.length > 0) {
     sets.push("updated_at = ?");

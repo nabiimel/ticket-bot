@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useFormState } from "react-dom";
-import { SUPPORTED_LANGUAGES, type GuildConfig } from "@ticketbot/shared";
+import {
+  SUPPORTED_LANGUAGES,
+  robuxCost,
+  type GuildConfig,
+} from "@ticketbot/shared";
 import { emptyFormState, type FormState } from "@/lib/form";
 import { saveGeneral } from "@/app/dashboard/[guildId]/actions";
 import { SubmitButton } from "./SubmitButton";
@@ -84,6 +88,11 @@ export function GeneralForm({
   const [defaultStaffRoleId, setStaff] = useState(cfg.defaultStaffRoleId);
   const [archiveCategoryId, setArchive] = useState(cfg.archiveCategoryId);
   const [pingGuardSellerId, setSeller] = useState(cfg.pingGuardSellerId);
+  const [rate, setRate] = useState({
+    rerollUnit: cfg.reservationsRerollUnit,
+    robuxPerUnit: cfg.reservationsRobuxPerUnit,
+    discountPct: cfg.reservationsDiscountPct,
+  });
   const [dirty, setDirty] = useState(false);
 
   useUnsavedChanges(dirty);
@@ -343,6 +352,75 @@ export function GeneralForm({
             <FieldError state={state} name="pingGuardWindowSecs" />
           </div>
         </div>
+      </section>
+
+      <section className="space-y-5">
+        <h2 className="text-sm font-semibold text-dim">Reservations pricing</h2>
+        <p className="-mt-3 text-xs text-faint">
+          How reroll counts convert to Robux on the Reservations page.
+        </p>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="label">Rerolls per batch</label>
+            <input
+              type="number"
+              name="reservationsRerollUnit"
+              min={1}
+              max={10000}
+              defaultValue={cfg.reservationsRerollUnit}
+              onChange={(e) =>
+                setRate((r) => ({
+                  ...r,
+                  rerollUnit: Number(e.target.value) || 0,
+                }))
+              }
+              className={inputCls(state, "reservationsRerollUnit")}
+            />
+            <FieldError state={state} name="reservationsRerollUnit" />
+          </div>
+          <div>
+            <label className="label">Robux per batch</label>
+            <input
+              type="number"
+              name="reservationsRobuxPerUnit"
+              min={1}
+              defaultValue={cfg.reservationsRobuxPerUnit}
+              onChange={(e) =>
+                setRate((r) => ({
+                  ...r,
+                  robuxPerUnit: Number(e.target.value) || 0,
+                }))
+              }
+              className={inputCls(state, "reservationsRobuxPerUnit")}
+            />
+            <FieldError state={state} name="reservationsRobuxPerUnit" />
+          </div>
+          <div>
+            <label className="label">Premium discount (%)</label>
+            <input
+              type="number"
+              name="reservationsDiscountPct"
+              min={0}
+              max={100}
+              defaultValue={cfg.reservationsDiscountPct}
+              onChange={(e) =>
+                setRate((r) => ({
+                  ...r,
+                  discountPct: Number(e.target.value) || 0,
+                }))
+              }
+              className={inputCls(state, "reservationsDiscountPct")}
+            />
+            <FieldError state={state} name="reservationsDiscountPct" />
+          </div>
+        </div>
+        <p className="text-xs text-dim">
+          {rate.rerollUnit || 50} rerolls ={" "}
+          <span className="font-semibold text-ink">
+            {robuxCost(rate.rerollUnit || 50, rate).toLocaleString()} Robux
+          </span>{" "}
+          (after {rate.discountPct || 0}% off).
+        </p>
       </section>
 
       <section className="space-y-5">

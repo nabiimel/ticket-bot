@@ -1,16 +1,21 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import type { ReservationRecord, ReservationStatus } from "@ticketbot/shared";
+import {
+  robuxCost,
+  type ReservationRecord,
+  type ReservationStatus,
+  type RobuxRate,
+} from "@ticketbot/shared";
 import { fmtAgo } from "@/lib/format";
 import {
   addReservation,
   bulkSendSnippetToReservations,
   deleteReservation,
   setReservationDone,
+  setReservationsBudget,
   updateReservation,
 } from "@/app/dashboard/[guildId]/actions";
-import { Relative } from "./Relative";
 import { EmptyState } from "./EmptyState";
 import { useToast } from "./Toast";
 import { useConfirm } from "./ConfirmDialog";
@@ -20,35 +25,50 @@ type Row = ReservationRecord & {
   addedByName: string | null;
   doneByName: string | null;
   ticketNumber: number | null;
+  robuxCost: number;
 };
+
+const nf = new Intl.NumberFormat("en-US");
 
 export function ReservationsTable({
   guildId,
   tab,
   rows,
   snippets,
+  rate,
+  budget,
 }: {
   guildId: string;
   tab: ReservationStatus | "all";
   rows: Row[];
   snippets: { id: number; name: string }[];
+  rate: RobuxRate;
+  budget: number;
 }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [pending, start] = useTransition();
   const [search, setSearch] = useState("");
-  // Local mirror so edits/toggles show instantly without a full refetch.
   const [local, setLocal] = useState<Record<number, Partial<Row>>>({});
   const [removed, setRemoved] = useState<Set<number>>(new Set());
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [snippetId, setSnippetId] = useState<number | "">("");
   const [markDone, setMarkDone] = useState(false);
+  const [budgetDraft, setBudgetDraft] = useState<number>(budget);
+
+  const costOf = (qty: number) => robuxCost(qty, rate);
 
   const merged = useMemo(
     () => rows.map((r) => ({ ...r, ...local[r.id] })),
     [rows, local],
   );
+
+  // Committed Robux spans every row (not just the current tab).
+  const committed = merged
+    .filter((r) => !removed.has(r.id) && r.status !== "cancelled")
+    .reduce((sum, r) => sum + costOf(r.qty), 0);
+  const remaining = budgetDraft - committed;
 
   const visible = merged.filter((r) => {
     if (removed.has(r.id)) return false;
@@ -56,8 +76,8 @@ export function ReservationsTable({
     if (search.trim()) {
       const q = search.toLowerCase();
       if (
-        !r.buyerName.toLowerCase().includes(q) &&
-        !r.note.toLowerCase().includes(q)
+        !(r.gakuranName || r.buyerName).toLowerCase().includes(q) &&
+        !r.robloxUser.toLowerCase().includes(q)
       )
         return false;
     }
@@ -79,6 +99,21 @@ export function ReservationsTable({
   const allSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
 
+  const saveBudget = (value: number) => {
+    const n = Math.max(Math.trunc(value) || 0, 0);
+    setBudgetDraft(n);
+    if (n === budget) return;
+    start(async () => {
+      const res = await setReservationsBudget(guildId, n);
+      if (!res.ok) {
+        setBudgetDraft(budget);
+        toast.error(res.error ?? "Couldn't save budget");
+      } else {
+        toast.success("Budget updated");
+      }
+    });
+  };
+
   const toggleDone = (r: Row, done: boolean) => {
     patch(r.id, { status: done ? "done" : "open" });
     start(async () => {
@@ -86,21 +121,43 @@ export function ReservationsTable({
       if (!res.ok) {
         patch(r.id, { status: r.status });
         toast.error(res.error ?? "Couldn't update");
-      } else {
-        toast.success(done ? "Marked done" : "Reopened");
       }
     });
   };
 
-  const saveField = (r: Row, field: "note" | "qty", value: string) => {
-    const next =
-      field === "qty"
-        ? Math.min(Math.max(parseInt(value || "1", 10) || 1, 1), 9999)
-        : value;
-    if (r[field] === next) return;
-    patch(r.id, { [field]: next } as Partial<Row>);
+  const togglePaid = (r: Row, paid: boolean) => {
+    patch(r.id, { paid });
     start(async () => {
-      const res = await updateReservation(guildId, r.id, { [field]: next });
+      const res = await updateReservation(guildId, r.id, { paid });
+      if (!res.ok) {
+        patch(r.id, { paid: r.paid });
+        toast.error(res.error ?? "Couldn't update");
+      }
+    });
+  };
+
+  const saveField = (
+    r: Row,
+    field: "gakuranName" | "robloxUser" | "qty",
+    raw: string,
+  ) => {
+    if (field === "qty") {
+      const next = Math.max(parseInt(raw || "0", 10) || 0, 0);
+      if (r.qty === next) return;
+      patch(r.id, { qty: next });
+      start(async () => {
+        const res = await updateReservation(guildId, r.id, { qty: next });
+        if (!res.ok) toast.error(res.error ?? "Couldn't save");
+      });
+      return;
+    }
+    const next = raw.trim();
+    if (r[field] === next) return;
+    const p =
+      field === "gakuranName" ? { gakuranName: next } : { robloxUser: next };
+    patch(r.id, p);
+    start(async () => {
+      const res = await updateReservation(guildId, r.id, p);
       if (!res.ok) toast.error(res.error ?? "Couldn't save");
     });
   };
@@ -108,7 +165,7 @@ export function ReservationsTable({
   const remove = async (r: Row) => {
     const ok = await confirm({
       title: "Delete reservation?",
-      message: `This removes the row for ${r.buyerName}. It can't be undone.`,
+      message: `This removes the row for ${r.gakuranName || r.buyerName}. It can't be undone.`,
       confirmLabel: "Delete",
       danger: true,
     });
@@ -133,15 +190,19 @@ export function ReservationsTable({
   };
 
   const submitWalkIn = (form: FormData) => {
-    const buyerTag = String(form.get("buyerTag") ?? "").trim();
-    const note = String(form.get("note") ?? "");
-    const qty = Number(form.get("qty") ?? 1);
-    if (!buyerTag) {
-      toast.error("Enter a name");
+    const gakuranName = String(form.get("gakuranName") ?? "").trim();
+    const robloxUser = String(form.get("robloxUser") ?? "").trim();
+    const qty = Number(form.get("qty") ?? 0);
+    if (!gakuranName) {
+      toast.error("Enter a Gakuran name");
       return;
     }
     start(async () => {
-      const res = await addReservation(guildId, { buyerTag, note, qty });
+      const res = await addReservation(guildId, {
+        gakuranName,
+        robloxUser,
+        qty,
+      });
       if (res.ok) {
         toast.success("Added");
         setAdding(false);
@@ -204,10 +265,43 @@ export function ReservationsTable({
 
   return (
     <div className={`space-y-3 ${pending ? "opacity-70" : ""}`}>
+      {/* Budget banner */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-card border border-line bg-surface px-4 py-3">
+        <label className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-faint">
+            Available Robux
+          </span>
+          <input
+            type="number"
+            min={0}
+            value={budgetDraft}
+            onChange={(e) => setBudgetDraft(Number(e.target.value) || 0)}
+            onBlur={(e) => saveBudget(Number(e.target.value) || 0)}
+            className="input w-32 !py-1 text-lg font-bold"
+          />
+        </label>
+        <div className="text-sm">
+          <span className="text-faint">Committed </span>
+          <span className="font-semibold">{nf.format(committed)}</span>
+        </div>
+        <div className="text-sm">
+          <span className="text-faint">Remaining </span>
+          <span
+            className={`font-semibold ${remaining < 0 ? "text-danger" : "text-success"}`}
+          >
+            {nf.format(remaining)}
+          </span>
+        </div>
+        <div className="grow" />
+        <span className="text-xs text-faint">
+          {rate.rerollUnit} rerolls = {nf.format(costOf(rate.rerollUnit))} Robux
+        </span>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <input
           className="input max-w-xs"
-          placeholder="Search buyer or note…"
+          placeholder="Search name or Roblox user…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -227,30 +321,26 @@ export function ReservationsTable({
           className="flex flex-wrap items-end gap-2 rounded-card border border-line bg-surface p-3"
         >
           <label className="text-xs text-dim">
-            Buyer name
+            Gakuran name
             <input
-              name="buyerTag"
+              name="gakuranName"
               autoFocus
               className="input mt-1 block w-48"
-              placeholder="e.g. @someone / IGN"
             />
           </label>
           <label className="text-xs text-dim">
-            Note
-            <input
-              name="note"
-              className="input mt-1 block w-64"
-              placeholder="What they ordered"
-            />
+            Roblox user
+            <input name="robloxUser" className="input mt-1 block w-48" />
           </label>
           <label className="text-xs text-dim">
-            Qty
+            RR&apos;s
             <input
               name="qty"
               type="number"
-              min={1}
-              defaultValue={1}
-              className="input mt-1 block w-20"
+              min={0}
+              step={rate.rerollUnit}
+              defaultValue={0}
+              className="input mt-1 block w-24"
             />
           </label>
           <button type="submit" className="btn-primary" disabled={pending}>
@@ -323,7 +413,7 @@ export function ReservationsTable({
         />
       ) : (
         <div className="overflow-x-auto rounded-card border border-line">
-          <table className="w-full min-w-[780px] text-sm">
+          <table className="w-full min-w-[900px] text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-left text-xs uppercase tracking-wide text-faint">
                 <th className="w-9 px-3 py-2">
@@ -339,12 +429,13 @@ export function ReservationsTable({
                     title="Select all"
                   />
                 </th>
-                <th className="w-10 px-3 py-2">Done</th>
-                <th className="px-3 py-2">Buyer</th>
-                <th className="px-3 py-2">Note</th>
-                <th className="w-20 px-3 py-2">Qty</th>
-                <th className="w-28 px-3 py-2">From</th>
-                <th className="w-40 px-3 py-2">Added</th>
+                <th className="px-3 py-2">Gakuran Name</th>
+                <th className="px-3 py-2">Roblox User</th>
+                <th className="w-24 px-3 py-2">RR&apos;s</th>
+                <th className="w-24 px-3 py-2 text-right">Robux</th>
+                <th className="w-28 px-3 py-2">Paid</th>
+                <th className="w-14 px-3 py-2">Done</th>
+                <th className="w-24 px-3 py-2">From</th>
                 <th className="w-10 px-3 py-2"></th>
               </tr>
             </thead>
@@ -368,6 +459,51 @@ export function ReservationsTable({
                   </td>
                   <td className="px-3 py-2 align-middle">
                     <input
+                      className={`input w-full !py-1 ${r.status === "done" ? "text-faint line-through" : ""}`}
+                      defaultValue={r.gakuranName || r.buyerName}
+                      placeholder="—"
+                      onBlur={(e) =>
+                        saveField(r, "gakuranName", e.target.value)
+                      }
+                    />
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <input
+                      className="input w-full !py-1"
+                      defaultValue={r.robloxUser}
+                      placeholder="—"
+                      onBlur={(e) => saveField(r, "robloxUser", e.target.value)}
+                    />
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <input
+                      type="number"
+                      min={0}
+                      step={rate.rerollUnit}
+                      className="input w-20 !py-1"
+                      defaultValue={r.qty}
+                      onBlur={(e) => saveField(r, "qty", e.target.value)}
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right align-middle tabular-nums">
+                    {nf.format(costOf(r.qty))}
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => togglePaid(r, !r.paid)}
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                        r.paid
+                          ? "bg-success/15 text-success"
+                          : "bg-danger/10 text-danger"
+                      }`}
+                    >
+                      {r.paid ? "Paid" : "Not paid"}
+                    </button>
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <input
                       type="checkbox"
                       className="h-4 w-4 accent-[var(--accent)]"
                       checked={r.status === "done"}
@@ -376,40 +512,6 @@ export function ReservationsTable({
                       title={
                         r.status === "done" ? "Mark not done" : "Mark done"
                       }
-                    />
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <span
-                      className={
-                        r.status === "done"
-                          ? "text-faint line-through"
-                          : "font-medium"
-                      }
-                    >
-                      {r.buyerName}
-                    </span>
-                    {r.status === "done" && r.doneAt && (
-                      <span className="ml-2 text-xs text-faint">
-                        done {fmtAgo(r.doneAt)}
-                        {r.doneByName ? ` by ${r.doneByName}` : ""}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <input
-                      className="input w-full !py-1"
-                      defaultValue={r.note}
-                      placeholder="—"
-                      onBlur={(e) => saveField(r, "note", e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <input
-                      type="number"
-                      min={1}
-                      className="input w-16 !py-1"
-                      defaultValue={r.qty}
-                      onBlur={(e) => saveField(r, "qty", e.target.value)}
                     />
                   </td>
                   <td className="px-3 py-2 align-middle text-xs">
@@ -427,16 +529,13 @@ export function ReservationsTable({
                         `#${r.ticketNumber}`
                       )
                     ) : (
-                      <span className="text-faint">walk-in</span>
+                      <span
+                        className="text-faint"
+                        title={`Added ${fmtAgo(r.addedAt)}${r.addedByName ? ` by ${r.addedByName}` : ""}`}
+                      >
+                        walk-in
+                      </span>
                     )}
-                  </td>
-                  <td className="px-3 py-2 align-middle text-xs text-faint">
-                    <Relative
-                      unix={r.addedAt}
-                      ago
-                      initial={fmtAgo(r.addedAt)}
-                    />
-                    {r.addedByName ? ` · ${r.addedByName}` : ""}
                   </td>
                   <td className="px-3 py-2 text-right align-middle">
                     <button
