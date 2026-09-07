@@ -18,7 +18,7 @@ const nextConfig = {
   transpilePackages: ["@ticketbot/db", "@ticketbot/shared"],
   experimental: {
     // better-sqlite3 is a native module; keep it out of the server bundle.
-    serverComponentsExternalPackages: ["better-sqlite3"],
+    serverComponentsExternalPackages: ["better-sqlite3", "exceljs"],
     // allow importing files from outside apps/dashboard (workspace packages)
     externalDir: true,
     // run instrumentation.ts on server startup (env validation)

@@ -82,7 +82,7 @@ export default async function ReservationsPage({
           className="btn-secondary"
           href={`/dashboard/${guildId}/reservations/export?status=${status}`}
         >
-          Export CSV
+          Export spreadsheet
         </a>
       </PageHeader>
 
