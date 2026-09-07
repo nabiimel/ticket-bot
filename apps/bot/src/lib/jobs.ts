@@ -1,11 +1,12 @@
 import {
   ChannelType,
+  EmbedBuilder,
   PermissionFlagsBits,
   type Client,
   type GuildTextBasedChannel,
   type TextChannel,
 } from "discord.js";
-import { renderTemplate, t } from "@ticketbot/shared";
+import { renderTemplate, robuxCost, t } from "@ticketbot/shared";
 import type {
   AdminClaimTicketPayload,
   AdminCloseTicketPayload,
@@ -407,6 +408,8 @@ async function handleReservationDone(
     .catch((err) => logger.warn("reservation_done log post failed", err));
 }
 
+const nf = (n: number) => n.toLocaleString("en-US");
+
 async function handlePostStockUpdate(
   client: Client,
   job: JobRecord<PostStockUpdatePayload>,
@@ -422,14 +425,66 @@ async function handlePostStockUpdate(
 
   const { robux, previous } = job.payload;
   const delta = robux - previous;
-  const nf = (n: number) => n.toLocaleString("en-US");
-  const line =
-    delta > 0
-      ? `📦 **Robux restocked** — +${nf(delta)} → **${nf(robux)}** available`
-      : `📦 **Robux stock** — **${nf(robux)}** available`;
-  await channel
-    .send({ content: line, allowedMentions: { parse: [] } })
-    .catch((err) => logger.warn("post_stock_update failed", err));
+
+  const committed = robuxCost(repos.reservations.sumRerolls(db, job.guildId), {
+    rerollUnit: cfg.reservationsRerollUnit,
+    robuxPerUnit: cfg.reservationsRobuxPerUnit,
+    discountPct: cfg.reservationsDiscountPct,
+  });
+  const remaining = robux - committed;
+
+  const embed = new EmbedBuilder()
+    .setTitle("📊 Robux Stock")
+    .setColor(remaining < 0 ? 0xed4245 : remaining === 0 ? 0xfaa61a : 0x2ecc71)
+    .addFields(
+      { name: "Available", value: `**${nf(robux)}**`, inline: true },
+      { name: "Reserved", value: nf(committed), inline: true },
+      {
+        name: "Remaining",
+        value: remaining < 0 ? `⚠️ ${nf(remaining)}` : nf(remaining),
+        inline: true,
+      },
+    )
+    .setFooter({ text: "Updated" })
+    .setTimestamp(new Date());
+
+  // Edit the standing message if we have one; otherwise post a fresh one.
+  let messageId = cfg.reservationsStockMessageId;
+  if (messageId) {
+    const existing = await channel.messages
+      .fetch({ message: messageId, force: true })
+      .catch(() => null);
+    if (existing) {
+      await existing.edit({ embeds: [embed] }).catch(() => (messageId = null));
+    } else {
+      messageId = null;
+    }
+  }
+  if (!messageId) {
+    const msg = await channel
+      .send({ embeds: [embed], allowedMentions: { parse: [] } })
+      .catch((err) => {
+        logger.warn("post_stock_update: post failed", err);
+        return null;
+      });
+    if (msg) {
+      repos.guildConfig.updateGuildConfig(db, job.guildId, {
+        reservationsStockMessageId: msg.id,
+      });
+    }
+  }
+
+  // A rise since the last sync is worth a notification (embed edits are silent).
+  if (delta > 0) {
+    await channel
+      .send({
+        content: `📈 **Restock** +${nf(delta)} → **${nf(robux)}** Robux available`,
+        allowedMentions: { parse: [] },
+      })
+      .catch((err) =>
+        logger.warn("post_stock_update: restock line failed", err),
+      );
+  }
 }
 
 async function handleReservationBulkSnippet(

@@ -162,6 +162,8 @@ export interface GuildConfig {
   reservationsDiscountPct: number;
   /** Channel where the bot announces Robux restocks. */
   reservationsStockChannelId: string | null;
+  /** The live "Robux Stock" embed the bot edits in place, if posted. */
+  reservationsStockMessageId: string | null;
   /** Unix seconds of the last balance push from the seller's pusher. */
   reservationsStockSyncedAt: number | null;
   /** Host kill-switch: blocks ticket opening, jobs, sweeps and dashboard writes. */

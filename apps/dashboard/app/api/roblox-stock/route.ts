@@ -67,7 +67,8 @@ export async function POST(req: Request) {
     reservationsStockSyncedAt: Math.floor(Date.now() / 1000),
   });
 
-  if (robux > previous) {
+  // Refresh the stock embed on any change (rises also post a restock line).
+  if (robux !== previous) {
     await enqueueJob(guildId, "post_stock_update", { robux, previous });
   }
 

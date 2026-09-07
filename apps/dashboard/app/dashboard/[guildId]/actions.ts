@@ -287,6 +287,17 @@ export async function saveGeneral(
 
   repos.guildConfig.updateGuildConfig(db(), guildId, next);
 
+  // Stock channel changed → forget the old embed and repost in the new channel.
+  if (before.reservationsStockChannelId !== next.reservationsStockChannelId) {
+    repos.guildConfig.updateGuildConfig(db(), guildId, {
+      reservationsStockMessageId: null,
+    });
+    if (next.reservationsStockChannelId) {
+      const b = before.reservationsRobuxBudget;
+      await enqueueJob(guildId, "post_stock_update", { robux: b, previous: b });
+    }
+  }
+
   // The default staff role applies to every ticket — re-sync open channels.
   if (before.defaultStaffRoleId !== defaultStaffRoleId) {
     await enqueueJob(guildId, "sync_ticket_perms", {});
@@ -1224,10 +1235,17 @@ export async function setReservationsBudget(guildId: string, budget: number) {
   if (!Number.isFinite(n) || n < 0 || n > 100_000_000) {
     return { ok: false, error: "Enter a whole number of Robux" };
   }
+  const previous = repos.guildConfig.getGuildConfig(
+    db(),
+    guildId,
+  ).reservationsRobuxBudget;
   repos.guildConfig.updateGuildConfig(db(), guildId, {
     reservationsRobuxBudget: n,
   });
   audit(guildId, userId, "reservation.budget", `Set Robux budget to ${n}`);
+  if (n !== previous) {
+    await enqueueJob(guildId, "post_stock_update", { robux: n, previous });
+  }
   rev(guildId);
   return { ok: true };
 }

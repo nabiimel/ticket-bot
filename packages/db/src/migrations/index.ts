@@ -14,6 +14,7 @@ import { migration as m013 } from "./013_reservations.js";
 import { migration as m014 } from "./014_ping_guard.js";
 import { migration as m015 } from "./015_reservations_robux.js";
 import { migration as m016 } from "./016_reservations_stock.js";
+import { migration as m017 } from "./017_reservations_stock_message.js";
 
 export interface Migration {
   name: string;
@@ -38,4 +39,5 @@ export const MIGRATIONS: Migration[] = [
   m014,
   m015,
   m016,
+  m017,
 ];
