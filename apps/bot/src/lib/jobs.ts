@@ -442,26 +442,25 @@ async function handlePostStockUpdate(
     perReroll > 0 ? Math.max(0, Math.floor(remaining / perReroll)) : 0;
 
   const now = new Date();
+  const headline =
+    remaining < 0
+      ? `### ⚠️ Over-committed by ${nf(-remaining)} Robux`
+      : perReroll > 0
+        ? `### 🎟️ ${nf(rerollsLeft)} more rerolls can be sold`
+        : "";
   const embed = new EmbedBuilder()
     .setTitle("📊  Robux Stock")
     .setColor(remaining < 0 ? 0xed4245 : remaining === 0 ? 0xfaa61a : 0x00b06f)
-    .setDescription(
-      remaining < 0
-        ? `⚠️ **Over-committed by ${nf(-remaining)} Robux** — more is reserved than is in stock.`
-        : perReroll > 0
-          ? `**${nf(rerollsLeft)}** more rerolls can still be sold.`
-          : "Current stock levels:",
-    )
+    .setDescription(`# 💰 ${nf(robux)} Robux\n${headline}`.trim())
     .addFields(
-      { name: "💰 Available", value: `**${nf(robux)}**`, inline: true },
       {
         name: "📋 Reserved",
-        value: `${nf(committed)}\n\`${nf(reservedRerolls)} rerolls\``,
+        value: `## ${nf(committed)}\n\`${nf(reservedRerolls)} rerolls\``,
         inline: true,
       },
       {
         name: "✅ Remaining",
-        value: `${remaining < 0 ? "⚠️ " : ""}**${nf(remaining)}**`,
+        value: `## ${remaining < 0 ? "⚠️ " : ""}${nf(remaining)}`,
         inline: true,
       },
     )
@@ -500,11 +499,11 @@ async function handlePostStockUpdate(
       .setColor(0x00b06f)
       .setTitle("📈  Robux Restocked")
       .setDescription(
-        `**+${nf(delta)}** Robux added.\n` +
-          `Now **${nf(robux)}** in stock` +
+        `# +${nf(delta)} Robux\n` +
+          `### Now ${nf(robux)} in stock` +
           (perReroll > 0
-            ? ` — about **${nf(rerollsLeft)}** more rerolls available.`
-            : "."),
+            ? `\n🎟️ about **${nf(rerollsLeft)}** more rerolls available`
+            : ""),
       )
       .setTimestamp(now);
     await channel
