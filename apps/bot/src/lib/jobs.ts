@@ -455,12 +455,12 @@ async function handlePostStockUpdate(
     .addFields(
       {
         name: "📋 Reserved",
-        value: `## ${nf(committed)}\n\`${nf(reservedRerolls)} rerolls\``,
+        value: `**${nf(committed)}** Robux\n\`${nf(reservedRerolls)} rerolls\``,
         inline: true,
       },
       {
         name: "✅ Remaining",
-        value: `## ${remaining < 0 ? "⚠️ " : ""}${nf(remaining)}`,
+        value: `${remaining < 0 ? "⚠️ " : ""}**${nf(remaining)}** Robux`,
         inline: true,
       },
     )
