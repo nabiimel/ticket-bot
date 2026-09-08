@@ -1137,6 +1137,19 @@ function cleanQty(v: unknown): number {
   return Number.isFinite(n) ? Math.min(Math.max(n, 0), 100000) : 0;
 }
 
+/**
+ * Redraw the Discord stock embed so its Reserved / Remaining figures reflect a
+ * reservation change. delta 0 → no @everyone, just an edit. `enqueueJob`
+ * collapses identical pending jobs, so a burst of edits becomes one refresh.
+ */
+async function refreshStockEmbed(guildId: string) {
+  const b = repos.guildConfig.getGuildConfig(
+    db(),
+    guildId,
+  ).reservationsRobuxBudget;
+  await enqueueJob(guildId, "post_stock_update", { robux: b, previous: b });
+}
+
 /** Add a walk-in buyer who didn't open a ticket. */
 export async function addReservation(
   guildId: string,
@@ -1162,6 +1175,7 @@ export async function addReservation(
     addedBy: userId,
   });
   audit(guildId, userId, "reservation.add", `Added walk-in “${gakuranName}”`);
+  await refreshStockEmbed(guildId);
   rev(guildId);
   return { ok: true, id: r.id };
 }
@@ -1223,6 +1237,7 @@ export async function updateReservation(
       : {}),
     ...(patch.paid !== undefined ? { paid: !!patch.paid } : {}),
   });
+  if (patch.qty !== undefined) await refreshStockEmbed(guildId);
   rev(guildId);
   return { ok: true };
 }
@@ -1264,6 +1279,7 @@ export async function deleteReservation(guildId: string, id: number) {
     "reservation.delete",
     `Deleted reservation for ${r.buyerTag}`,
   );
+  await refreshStockEmbed(guildId);
   rev(guildId);
   return { ok: true };
 }

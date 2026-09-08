@@ -97,6 +97,13 @@ const reserveButton: ButtonHandler = {
       addedBy: interaction.user.id,
     });
 
+    // Redraw the stock embed so Reserved / Remaining reflect this reservation.
+    const budget = guildConfig.reservationsRobuxBudget;
+    repos.jobs.enqueueJob(db, ticket.guildId, "post_stock_update", {
+      robux: budget,
+      previous: budget,
+    });
+
     await interaction.reply({
       content: t("reservation.added", guildConfig.language, {
         buyer: buyerTag,
