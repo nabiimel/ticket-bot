@@ -426,27 +426,47 @@ async function handlePostStockUpdate(
   const { robux, previous } = job.payload;
   const delta = robux - previous;
 
-  const committed = robuxCost(repos.reservations.sumRerolls(db, job.guildId), {
+  const rate = {
     rerollUnit: cfg.reservationsRerollUnit,
     robuxPerUnit: cfg.reservationsRobuxPerUnit,
     discountPct: cfg.reservationsDiscountPct,
-  });
+  };
+  const reservedRerolls = repos.reservations.sumRerolls(db, job.guildId);
+  const committed = robuxCost(reservedRerolls, rate);
   const remaining = robux - committed;
+  const perReroll =
+    rate.rerollUnit > 0
+      ? (rate.robuxPerUnit * (1 - rate.discountPct / 100)) / rate.rerollUnit
+      : 0;
+  const rerollsLeft =
+    perReroll > 0 ? Math.max(0, Math.floor(remaining / perReroll)) : 0;
 
+  const now = new Date();
   const embed = new EmbedBuilder()
-    .setTitle("📊 Robux Stock")
-    .setColor(remaining < 0 ? 0xed4245 : remaining === 0 ? 0xfaa61a : 0x2ecc71)
+    .setTitle("📊  Robux Stock")
+    .setColor(remaining < 0 ? 0xed4245 : remaining === 0 ? 0xfaa61a : 0x00b06f)
+    .setDescription(
+      remaining < 0
+        ? `⚠️ **Over-committed by ${nf(-remaining)} Robux** — more is reserved than is in stock.`
+        : perReroll > 0
+          ? `**${nf(rerollsLeft)}** more rerolls can still be sold.`
+          : "Current stock levels:",
+    )
     .addFields(
-      { name: "Available", value: `**${nf(robux)}**`, inline: true },
-      { name: "Reserved", value: nf(committed), inline: true },
+      { name: "💰 Available", value: `**${nf(robux)}**`, inline: true },
       {
-        name: "Remaining",
-        value: remaining < 0 ? `⚠️ ${nf(remaining)}` : nf(remaining),
+        name: "📋 Reserved",
+        value: `${nf(committed)}\n\`${nf(reservedRerolls)} rerolls\``,
+        inline: true,
+      },
+      {
+        name: "✅ Remaining",
+        value: `${remaining < 0 ? "⚠️ " : ""}**${nf(remaining)}**`,
         inline: true,
       },
     )
-    .setFooter({ text: "Updated" })
-    .setTimestamp(new Date());
+    .setFooter({ text: "Last synced" })
+    .setTimestamp(now);
 
   // Edit the standing message if we have one; otherwise post a fresh one.
   let messageId = cfg.reservationsStockMessageId;
@@ -474,12 +494,24 @@ async function handlePostStockUpdate(
     }
   }
 
-  // A rise since the last sync is worth a notification (embed edits are silent).
+  // A rise since the last sync is a restock — ping @everyone (embed edits are silent).
   if (delta > 0) {
+    const restock = new EmbedBuilder()
+      .setColor(0x00b06f)
+      .setTitle("📈  Robux Restocked")
+      .setDescription(
+        `**+${nf(delta)}** Robux added.\n` +
+          `Now **${nf(robux)}** in stock` +
+          (perReroll > 0
+            ? ` — about **${nf(rerollsLeft)}** more rerolls available.`
+            : "."),
+      )
+      .setTimestamp(now);
     await channel
       .send({
-        content: `📈 **Restock** +${nf(delta)} → **${nf(robux)}** Robux available`,
-        allowedMentions: { parse: [] },
+        content: "@everyone — stock's back up 🎉",
+        embeds: [restock],
+        allowedMentions: { parse: ["everyone"] },
       })
       .catch((err) =>
         logger.warn("post_stock_update: restock line failed", err),
