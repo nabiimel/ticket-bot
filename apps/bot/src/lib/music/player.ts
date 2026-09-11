@@ -85,17 +85,22 @@ async function ensureConnection(
       guildId: channel.guild.id,
       adapterCreator: channel.guild.voiceAdapterCreator,
     });
+    connection.on("debug", (msg) => logger.info(`[voice debug] ${msg}`));
+    connection.on("error", (err) =>
+      logger.error("voice connection error", err),
+    );
+    connection.on("stateChange", (oldState, newState) => {
+      logger.info(`[voice state] ${oldState.status} -> ${newState.status}`);
+      if (newState.status === VoiceConnectionStatus.Disconnected) {
+        disconnect(channel.guild.id);
+      }
+    });
     try {
       await entersState(connection, VoiceConnectionStatus.Ready, 15_000);
     } catch (err) {
       connection.destroy();
       throw err;
     }
-    connection.on("stateChange", (_old, newState) => {
-      if (newState.status === VoiceConnectionStatus.Disconnected) {
-        disconnect(channel.guild.id);
-      }
-    });
     queue.connection = connection;
   }
 
