@@ -4,16 +4,36 @@ import { resolveQuery } from "../../lib/music/search.js";
 import { enqueue } from "../../lib/music/player.js";
 import { resolveMember } from "../../lib/music/guards.js";
 import { logger } from "../../lib/logger.js";
+import {
+  isSpotifyPlaylistOrAlbumUrl,
+  isSpotifyTrackUrl,
+  resolveSpotifyTrackQuery,
+} from "../../lib/music/spotify.js";
 
 export const playCommand: PrefixCommand = {
   name: "play",
   aliases: ["p"],
   description: "Play a song by search term or URL.",
   async execute(message, args) {
-    const query = args.join(" ").trim();
+    let query = args.join(" ").trim();
     if (!query) {
       await message.reply("Usage: `!play <song name or URL>`");
       return;
+    }
+
+    if (isSpotifyPlaylistOrAlbumUrl(query)) {
+      await message.reply(
+        "Spotify playlists and albums aren't supported yet — try a track link instead.",
+      );
+      return;
+    }
+    if (isSpotifyTrackUrl(query)) {
+      const resolved = await resolveSpotifyTrackQuery(query);
+      if (!resolved) {
+        await message.reply("Couldn't resolve that Spotify link.");
+        return;
+      }
+      query = resolved;
     }
 
     const member = await resolveMember(message);

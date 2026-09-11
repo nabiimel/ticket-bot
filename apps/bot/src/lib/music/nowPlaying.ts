@@ -5,14 +5,14 @@ import {
   EmbedBuilder,
 } from "discord.js";
 import { AudioPlayerStatus } from "@discordjs/voice";
-import type { GuildQueue, Track } from "./queue.js";
+import { getElapsedMs, type GuildQueue, type Track } from "./queue.js";
 import { fmtDuration } from "./format.js";
 
 const BAR_SLOTS = 20;
 
 function progressBar(queue: GuildQueue, track: Track): string {
-  if (!track.durationSec || !queue.playingSince) return "";
-  const elapsed = (Date.now() - queue.playingSince) / 1000;
+  if (!track.durationSec) return "";
+  const elapsed = getElapsedMs(queue) / 1000;
   const ratio = Math.min(1, Math.max(0, elapsed / track.durationSec));
   const filled = Math.round(ratio * BAR_SLOTS);
   return (
@@ -22,9 +22,7 @@ function progressBar(queue: GuildQueue, track: Track): string {
 
 function buildEmbed(queue: GuildQueue, track: Track): EmbedBuilder {
   const paused = queue.player?.state.status === AudioPlayerStatus.Paused;
-  const elapsedSec = queue.playingSince
-    ? (Date.now() - queue.playingSince) / 1000
-    : 0;
+  const elapsedSec = getElapsedMs(queue) / 1000;
   const bar = progressBar(queue, track);
 
   const embed = new EmbedBuilder()

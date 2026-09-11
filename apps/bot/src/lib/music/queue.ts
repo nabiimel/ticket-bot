@@ -29,8 +29,13 @@ export class GuildQueue {
   textChannel: GuildTextBasedChannel | null = null;
   nowPlayingMessage: Message | null = null;
 
-  playingSince: number | null = null;
+  /** Wall-clock ms elapsed in the current track before the most recent resume/start. */
+  elapsedMsBase = 0;
+  /** Wall-clock timestamp of the most recent resume/start, or null while paused. */
+  resumedAt: number | null = null;
   idleTimer: NodeJS.Timeout | null = null;
+  /** Ticks the Now Playing embed's progress bar while a track is actively playing. */
+  progressTimer: NodeJS.Timeout | null = null;
 
   ytProcess: { kill(): unknown } | null = null;
   ffmpegProcess: ChildProcess | null = null;
@@ -39,6 +44,13 @@ export class GuildQueue {
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;
+    }
+  }
+
+  clearProgressTimer(): void {
+    if (this.progressTimer) {
+      clearInterval(this.progressTimer);
+      this.progressTimer = null;
     }
   }
 
@@ -77,4 +89,10 @@ export function getExistingQueue(guildId: string): GuildQueue | undefined {
 export function deleteQueue(guildId: string): void {
   queues.get(guildId)?.killProcesses();
   queues.delete(guildId);
+}
+
+/** Ms elapsed in the current track, correctly excluding any paused time. */
+export function getElapsedMs(queue: GuildQueue): number {
+  const running = queue.resumedAt != null ? Date.now() - queue.resumedAt : 0;
+  return queue.elapsedMsBase + running;
 }

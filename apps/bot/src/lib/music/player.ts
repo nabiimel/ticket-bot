@@ -25,6 +25,16 @@ import {
 } from "./queue.js";
 
 const IDLE_DISCONNECT_MS = 5 * 60_000;
+const PROGRESS_TICK_MS = 10_000;
+
+/** (Re)start the Now Playing progress-bar tick; safe to call repeatedly. */
+function startProgressTicker(queue: GuildQueue, guildId: string): void {
+  queue.clearProgressTimer();
+  queue.progressTimer = setInterval(() => {
+    if (queue.current) void refreshNowPlaying(queue, guildId, queue.current);
+  }, PROGRESS_TICK_MS);
+  queue.progressTimer.unref();
+}
 
 function buildStream(url: string): {
   stream: Readable;
@@ -160,9 +170,11 @@ async function playTrack(
   });
   resource.volume?.setVolume(queue.volume / 100);
   queue.resource = resource;
-  queue.playingSince = Date.now();
+  queue.elapsedMsBase = 0;
+  queue.resumedAt = Date.now();
   queue.current = track;
   queue.player?.play(resource);
+  startProgressTicker(queue, guildId);
 
   await refreshNowPlaying(queue, guildId, track).catch((err) =>
     logger.error("now playing post failed", err),
@@ -216,14 +228,23 @@ export async function enqueue(
 
 export function pause(guildId: string): void {
   const queue = getExistingQueue(guildId);
-  queue?.player?.pause();
-  if (queue?.current) void refreshNowPlaying(queue, guildId, queue.current);
+  if (!queue) return;
+  queue.player?.pause();
+  if (queue.resumedAt != null) {
+    queue.elapsedMsBase += Date.now() - queue.resumedAt;
+    queue.resumedAt = null;
+  }
+  queue.clearProgressTimer();
+  if (queue.current) void refreshNowPlaying(queue, guildId, queue.current);
 }
 
 export function resume(guildId: string): void {
   const queue = getExistingQueue(guildId);
-  queue?.player?.unpause();
-  if (queue?.current) void refreshNowPlaying(queue, guildId, queue.current);
+  if (!queue) return;
+  queue.player?.unpause();
+  queue.resumedAt = Date.now();
+  startProgressTicker(queue, guildId);
+  if (queue.current) void refreshNowPlaying(queue, guildId, queue.current);
 }
 
 export function skip(guildId: string): void {
@@ -307,6 +328,7 @@ export function disconnect(guildId: string): void {
   const queue = getExistingQueue(guildId);
   if (!queue) return;
   queue.clearIdleTimer();
+  queue.clearProgressTimer();
   queue.killProcesses();
   try {
     queue.player?.stop(true);
