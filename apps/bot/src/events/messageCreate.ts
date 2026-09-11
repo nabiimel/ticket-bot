@@ -7,11 +7,33 @@ import {
 } from "../lib/configCache.js";
 import { isStaff } from "../lib/permissions.js";
 import { handlePingGuard } from "../lib/pingGuard.js";
+import { logger } from "../lib/logger.js";
+import { PREFIX } from "../music/prefix.js";
+import { musicCommandMap } from "../music/commands/index.js";
 
 export const name = Events.MessageCreate;
 
 export async function execute(message: Message): Promise<void> {
   if (message.author.bot || !message.inGuild()) return;
+
+  if (message.content.startsWith(PREFIX)) {
+    const [rawName, ...args] = message.content
+      .slice(PREFIX.length)
+      .trim()
+      .split(/\s+/);
+    const command = rawName
+      ? musicCommandMap.get(rawName.toLowerCase())
+      : undefined;
+    if (command) {
+      try {
+        await command.execute(message, args);
+      } catch (err) {
+        logger.error("music command failed", err);
+      }
+      return;
+    }
+  }
+
   const db = getDb();
   const ticket = repos.tickets.getTicketByChannel(db, message.channelId);
   if (!ticket || ticket.status === "closed") return;

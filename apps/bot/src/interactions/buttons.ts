@@ -20,6 +20,7 @@ import { closeTicket } from "../lib/ticketManager.js";
 import { startOpen } from "./openFlow.js";
 import { applicationButtonHandlers } from "./applications.js";
 import { reservationButtonHandlers } from "./reservations.js";
+import { musicButtonHandler } from "./music.js";
 import { logger } from "../lib/logger.js";
 
 const openButton: ButtonHandler = {
@@ -246,6 +247,7 @@ export const buttonHandlers: ButtonHandler[] = [
   closeReasonButton,
   closeButton,
   rateButton,
+  musicButtonHandler,
   ...applicationButtonHandlers,
   ...reservationButtonHandlers,
 ];
