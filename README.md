@@ -18,7 +18,7 @@ HTTP endpoint so changes apply immediately.
 
 ## Requirements
 
-- Node.js 20.11+
+- Node.js 22.12+
 - A Discord application + bot (https://discord.com/developers/applications)
 
 ## Setup

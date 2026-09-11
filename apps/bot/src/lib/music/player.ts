@@ -12,6 +12,7 @@ import {
 } from "@discordjs/voice";
 import { joinVoiceChannel } from "@discordjs/voice";
 import type { GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
+import { config } from "../../config.js";
 import { logger } from "../logger.js";
 import { refreshNowPlaying } from "./nowPlaying.js";
 import {
@@ -84,23 +85,26 @@ async function ensureConnection(
       channelId: channel.id,
       guildId: channel.guild.id,
       adapterCreator: channel.guild.voiceAdapterCreator,
-      debug: true,
+      // Verbose per-frame logging (includes session tokens) — only worth the
+      // noise when actively troubleshooting a connection issue.
+      debug: config.LOG_LEVEL === "debug",
     });
-    connection.on("debug", (msg) => logger.info(`[voice debug] ${msg}`));
+    connection.on("debug", (msg) => logger.debug(`[voice debug] ${msg}`));
     connection.on("error", (err) =>
       logger.error("voice connection error", err),
     );
     connection.on("stateChange", (oldState, newState) => {
       logger.info(`[voice state] ${oldState.status} -> ${newState.status}`);
-      // TEMP DIAGNOSTIC: the actual WS close code is swallowed internally by
-      // onNetworkingClose before it ever reaches our debug/error listeners —
-      // hook the Networking instance's own "close" event directly to see it.
+      // The actual WS close code (e.g. Discord rejecting an unsupported
+      // protocol) is swallowed internally before it reaches any public event
+      // — hook the Networking instance's own "close" event directly so a
+      // failed connect attempt is diagnosable from normal logs.
       const networking = (newState as { networking?: NodeJS.EventEmitter })
         .networking;
       if (networking && !(networking as { __hooked?: boolean }).__hooked) {
         (networking as { __hooked?: boolean }).__hooked = true;
         networking.once("close", (code: number) => {
-          logger.info(`[voice ws close code] ${code}`);
+          logger.warn(`[voice] connection closed by Discord, code ${code}`);
         });
       }
       if (newState.status === VoiceConnectionStatus.Disconnected) {
