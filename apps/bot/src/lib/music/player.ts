@@ -84,6 +84,7 @@ async function ensureConnection(
       channelId: channel.id,
       guildId: channel.guild.id,
       adapterCreator: channel.guild.voiceAdapterCreator,
+      debug: true,
     });
     connection.on("debug", (msg) => logger.info(`[voice debug] ${msg}`));
     connection.on("error", (err) =>
