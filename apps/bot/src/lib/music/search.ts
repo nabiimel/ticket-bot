@@ -11,14 +11,10 @@ export interface ResolvedTrack {
 const URL_RE = /^https?:\/\//i;
 
 function toTrack(entry: Record<string, unknown>): ResolvedTrack | null {
-  const id = typeof entry.id === "string" ? entry.id : null;
   const webpageUrl =
     typeof entry.webpage_url === "string" ? entry.webpage_url : null;
   const rawUrl = typeof entry.url === "string" ? entry.url : null;
-  const url =
-    webpageUrl ??
-    (rawUrl && URL_RE.test(rawUrl) ? rawUrl : null) ??
-    (id ? `https://www.youtube.com/watch?v=${id}` : null);
+  const url = webpageUrl ?? (rawUrl && URL_RE.test(rawUrl) ? rawUrl : null);
   if (!url) return null;
 
   const title =
@@ -61,15 +57,19 @@ async function dumpJsonLines(
 }
 
 /**
- * Resolve a `!play` argument — a bare search term or a YouTube video/playlist
- * URL — into track metadata. The actual streamable URL is resolved lazily per
- * track at playback time (see player.ts), since flat-playlist entries here
- * don't carry a playable format.
+ * Resolve a `!play` argument — a bare search term or a track/playlist URL —
+ * into track metadata. Bare search terms go to SoundCloud (`scsearch1:`):
+ * YouTube blocks anonymous yt-dlp requests from most cloud/VPS IP ranges with
+ * a "Sign in to confirm you're not a bot" error that no client-spoofing flag
+ * gets around, while SoundCloud has no such check. A direct URL (YouTube,
+ * SoundCloud, or anything yt-dlp supports) still works as given. The actual
+ * streamable URL is resolved lazily per track at playback time (see
+ * player.ts), since flat-playlist entries here don't carry a playable format.
  */
 export async function resolveQuery(query: string): Promise<ResolvedTrack[]> {
   const trimmed = query.trim();
   const isUrl = URL_RE.test(trimmed);
-  const target = isUrl ? trimmed : `ytsearch1:${trimmed}`;
+  const target = isUrl ? trimmed : `scsearch1:${trimmed}`;
   const flags = isUrl
     ? { flatPlaylist: true, playlistEnd: 50 }
     : { noPlaylist: true };
