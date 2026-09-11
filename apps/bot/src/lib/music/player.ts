@@ -92,6 +92,17 @@ async function ensureConnection(
     );
     connection.on("stateChange", (oldState, newState) => {
       logger.info(`[voice state] ${oldState.status} -> ${newState.status}`);
+      // TEMP DIAGNOSTIC: the actual WS close code is swallowed internally by
+      // onNetworkingClose before it ever reaches our debug/error listeners —
+      // hook the Networking instance's own "close" event directly to see it.
+      const networking = (newState as { networking?: NodeJS.EventEmitter })
+        .networking;
+      if (networking && !(networking as { __hooked?: boolean }).__hooked) {
+        (networking as { __hooked?: boolean }).__hooked = true;
+        networking.once("close", (code: number) => {
+          logger.info(`[voice ws close code] ${code}`);
+        });
+      }
       if (newState.status === VoiceConnectionStatus.Disconnected) {
         disconnect(channel.guild.id);
       }
