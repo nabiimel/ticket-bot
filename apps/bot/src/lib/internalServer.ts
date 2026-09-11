@@ -44,8 +44,15 @@ export function startInternalServer(client: Client): Server {
     res.writeHead(404).end();
   });
 
-  server.listen(config.INTERNAL_PORT, () => {
-    logger.info(`Internal server listening on :${config.INTERNAL_PORT}`);
+  // Bind to loopback only: under network_mode: host (needed for Discord voice
+  // UDP) an unbound-host listen() would otherwise be reachable from the public
+  // internet, not just other containers. The dashboard's wake call is already
+  // best-effort with a 3s-poll fallback (see enqueueJob), so losing the
+  // instant nudge here is an acceptable trade for not exposing this endpoint.
+  server.listen(config.INTERNAL_PORT, "127.0.0.1", () => {
+    logger.info(
+      `Internal server listening on 127.0.0.1:${config.INTERNAL_PORT}`,
+    );
   });
   return server;
 }
