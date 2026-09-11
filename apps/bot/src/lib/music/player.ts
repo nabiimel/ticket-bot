@@ -65,7 +65,7 @@ function buildStream(url: string): {
       "2",
       "pipe:1",
     ],
-    { stdio: ["pipe", "pipe", "ignore"] },
+    { stdio: ["pipe", "pipe", "pipe"] },
   );
 
   yt.stdout?.pipe(ff.stdin!);
@@ -78,6 +78,16 @@ function buildStream(url: string): {
     }
   });
   ff.on("error", (err) => logger.error("ffmpeg spawn error", err));
+  ff.stderr?.on("data", (chunk: Buffer) => {
+    logger.warn(`[ffmpeg] ${chunk.toString().trim()}`);
+  });
+  ff.on("exit", (code, signal) => {
+    if (code !== 0 && code !== null) {
+      logger.warn(
+        `ffmpeg exited unexpectedly (code ${code}, signal ${signal})`,
+      );
+    }
+  });
 
   return { stream: ff.stdout!, yt, ff };
 }
@@ -132,6 +142,9 @@ async function ensureConnection(
 
   if (!queue.player) {
     const player = createAudioPlayer();
+    player.on("stateChange", (oldState, newState) => {
+      logger.info(`[player state] ${oldState.status} -> ${newState.status}`);
+    });
     player.on(AudioPlayerStatus.Idle, () => {
       void advance(channel.guild.id);
     });
