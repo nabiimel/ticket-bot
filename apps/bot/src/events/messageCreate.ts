@@ -7,6 +7,7 @@ import {
 } from "../lib/configCache.js";
 import { isStaff } from "../lib/permissions.js";
 import { handlePingGuard } from "../lib/pingGuard.js";
+import { keepControlsSticky } from "../lib/ticketManager.js";
 
 export const name = Events.MessageCreate;
 
@@ -39,4 +40,5 @@ export async function execute(message: Message): Promise<void> {
   }
 
   repos.tickets.bumpActivity(db, message.channelId, { staff });
+  await keepControlsSticky(message.channel, ticket, guildConfig);
 }

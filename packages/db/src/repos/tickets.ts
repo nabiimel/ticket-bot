@@ -43,6 +43,7 @@ function map(r: any): TicketRecord {
     closedBy: r.closed_by,
     closeReason: r.close_reason,
     transcriptUrl: r.transcript_url,
+    controlsMessageId: r.controls_message_id,
   };
 }
 
@@ -265,6 +266,17 @@ export function setPriority(
 
 export function setPaid(db: DB, id: number, paid: boolean): void {
   db.prepare(`UPDATE tickets SET paid = ? WHERE id = ?`).run(paid ? 1 : 0, id);
+}
+
+export function setControlsMessageId(
+  db: DB,
+  id: number,
+  messageId: string | null,
+): void {
+  db.prepare(`UPDATE tickets SET controls_message_id = ? WHERE id = ?`).run(
+    messageId,
+    id,
+  );
 }
 
 /** Replace a ticket's tag list (deduped, trimmed, lowercased, capped at 10). */

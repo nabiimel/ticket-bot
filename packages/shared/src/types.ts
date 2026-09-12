@@ -258,6 +258,8 @@ export interface TicketRecord {
   closedBy: string | null;
   closeReason: string | null;
   transcriptUrl: string | null;
+  /** The pinned-to-the-bottom "Ticket controls" message, kept in view via keepControlsSticky. */
+  controlsMessageId: string | null;
 }
 
 export interface BlacklistEntry {

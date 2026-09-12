@@ -34,6 +34,7 @@ describe("migrations", () => {
       "017_reservations_stock_message",
       "018_ticket_paid",
       "019_dashboard_presence",
+      "020_ticket_controls_message",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });

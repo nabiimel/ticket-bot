@@ -3,7 +3,6 @@ import {
   AttachmentBuilder,
   ChannelType,
   EmbedBuilder,
-  MessageType,
   PermissionFlagsBits,
   type Guild,
   type GuildMember,
@@ -27,6 +26,7 @@ import { buildContext } from "./context.js";
 import { buildRatingRow, buildTicketControls } from "./embeds.js";
 import { buildEmbedWithAssets } from "./embedAssets.js";
 import { buildTicketOverwrites, staffRoleIdsFor } from "./permissions.js";
+import { hit } from "./cooldown.js";
 import { logger } from "./logger.js";
 
 export interface FormAnswer {
@@ -177,9 +177,9 @@ export async function createTicket(args: {
     },
   });
 
-  // The controls live in their own (pinned) message so only the buttons —
-  // not the welcome embed / form responses — clutter the pinned-messages
-  // panel once the conversation scrolls past them.
+  // The controls live in their own message, kept near the bottom of the
+  // channel by keepControlsSticky, so only the buttons — not the welcome
+  // embed / form responses — need to survive a long conversation.
   const controlsMsg = await channel.send({
     content: t("ticket.controlsLabel", guildConfig.language),
     components: [
@@ -188,20 +188,7 @@ export async function createTicket(args: {
       }),
     ],
   });
-  // Discord auto-posts a "pinned a message" system notice on pin — delete it
-  // so a fresh ticket channel doesn't start out cluttered.
-  await controlsMsg
-    .pin()
-    .then(async () => {
-      const recent = await channel.messages
-        .fetch({ limit: 5 })
-        .catch(() => null);
-      const pinNotice = recent?.find(
-        (m) => m.type === MessageType.ChannelPinnedMessage,
-      );
-      if (pinNotice) await pinNotice.delete().catch(() => {});
-    })
-    .catch((err) => logger.warn("failed to pin ticket controls message", err));
+  repos.tickets.setControlsMessageId(db, ticket.id, controlsMsg.id);
 
   const logCh = await fetchTextChannel(guild, guildConfig.logChannelId);
   if (logCh) {
@@ -228,6 +215,43 @@ export async function createTicket(args: {
   }
 
   return { ticket, channel };
+}
+
+/**
+ * Keep the Claim/Reserve/Close controls near the bottom of the channel by
+ * deleting and resending the tracked controls message whenever a new message
+ * has pushed it out of view. Throttled per ticket so a fast back-and-forth
+ * doesn't turn into a delete+send pair on every single message.
+ */
+export async function keepControlsSticky(
+  channel: GuildTextBasedChannel,
+  ticket: TicketRecord,
+  guildConfig: GuildConfig,
+): Promise<void> {
+  if (!ticket.controlsMessageId) return;
+  if (!hit(`sticky-controls:${ticket.id}`, 20_000)) return;
+
+  await channel.messages
+    .fetch(ticket.controlsMessageId)
+    .then((m) => m.delete())
+    .catch(() => {});
+
+  const controlsMsg = await channel
+    .send({
+      content: t("ticket.controlsLabel", guildConfig.language),
+      components: [
+        buildTicketControls(ticket.id, {
+          claimEnabled: guildConfig.claimingEnabled,
+        }),
+      ],
+    })
+    .catch((err) => {
+      logger.warn("keepControlsSticky: repost failed", ticket.id, err);
+      return null;
+    });
+  if (controlsMsg) {
+    repos.tickets.setControlsMessageId(getDb(), ticket.id, controlsMsg.id);
+  }
 }
 
 /** Generate a transcript, notify the opener, log, then delete/archive the channel. */
