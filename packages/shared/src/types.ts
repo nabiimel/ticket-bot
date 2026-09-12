@@ -420,6 +420,7 @@ export interface AdminClaimTicketPayload {
 export interface AdminSetPaidPayload {
   ticketId: number;
   paid: boolean;
+  staffId: string;
 }
 export interface RepostApplicationPayload {
   applicationId: number;

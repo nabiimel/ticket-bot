@@ -347,7 +347,13 @@ async function handleAdminSetPaid(
   const guild = client.guilds.cache.get(ticket.guildId);
   if (!guild) return;
   const cfg = repos.guildConfig.getGuildConfig(db, ticket.guildId);
-  const { warning } = await setTicketPaid(guild, ticket, job.payload.paid, cfg);
+  const { warning } = await setTicketPaid(
+    guild,
+    ticket,
+    job.payload.paid,
+    cfg,
+    job.payload.staffId ?? null,
+  );
   if (warning) logger.warn(`ticket ${ticket.id} paid toggle: ${warning}`);
 }
 

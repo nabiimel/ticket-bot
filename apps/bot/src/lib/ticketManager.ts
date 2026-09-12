@@ -420,15 +420,18 @@ export async function closeTicket(args: {
 /**
  * Toggle a ticket's paid status and relocate its channel accordingly (to
  * `paidCategoryId` when marking paid, back to the ticket's own category when
- * unmarking). Shared by the /ticket paid command and the dashboard's
- * admin_set_paid job — moving only the parent (no permissionOverwrites)
- * leaves the channel's existing access untouched.
+ * unmarking). Shared by the /ticket paid command, the dashboard's
+ * admin_set_paid job, and the Reservations page's paid checkbox — moving
+ * only the parent (no permissionOverwrites) leaves the channel's existing
+ * access untouched. Posts a visible confirmation in the channel itself so
+ * the change is equally noticeable regardless of which surface triggered it.
  */
 export async function setTicketPaid(
   guild: Guild,
   ticket: TicketRecord,
   paid: boolean,
   guildConfig: GuildConfig,
+  actorId: string | null = null,
 ): Promise<{ moved: boolean; warning: string | null }> {
   const db = getDb();
   repos.tickets.setPaid(db, ticket.id, paid);
@@ -439,21 +442,35 @@ export async function setTicketPaid(
   if (!ch || ch.type !== ChannelType.GuildText) {
     return { moved: false, warning: "the ticket channel no longer exists" };
   }
+
+  let moved = false;
+  let warning: string | null = null;
   if (paid && !guildConfig.paidCategoryId) {
-    return { moved: false, warning: "no paid category is configured" };
+    warning = "no paid category is configured";
+  } else {
+    const category =
+      ticket.categoryId != null
+        ? repos.categories.getCategory(db, ticket.categoryId)
+        : null;
+    const targetParent = paid
+      ? guildConfig.paidCategoryId
+      : (category?.discordParentId ?? null);
+    try {
+      await (ch as TextChannel).edit({ parent: targetParent });
+      moved = true;
+    } catch (err) {
+      logger.error("setTicketPaid: channel move failed", ticket.id, err);
+      warning = "couldn't move the channel";
+    }
   }
-  const category =
-    ticket.categoryId != null
-      ? repos.categories.getCategory(db, ticket.categoryId)
-      : null;
-  const targetParent = paid
-    ? guildConfig.paidCategoryId
-    : (category?.discordParentId ?? null);
-  try {
-    await (ch as TextChannel).edit({ parent: targetParent });
-    return { moved: true, warning: null };
-  } catch (err) {
-    logger.error("setTicketPaid: channel move failed", ticket.id, err);
-    return { moved: false, warning: "couldn't move the channel" };
-  }
+
+  const who = actorId ? ` by <@${actorId}>` : "";
+  await (ch as TextChannel)
+    .send({
+      content: `${paid ? "💰 Marked as **paid**" : "Marked as **not paid**"}${who}${warning ? ` (${warning})` : ""}.`,
+      allowedMentions: actorId ? { users: [actorId] } : undefined,
+    })
+    .catch((err) => logger.error("setTicketPaid: message post failed", err));
+
+  return { moved, warning };
 }

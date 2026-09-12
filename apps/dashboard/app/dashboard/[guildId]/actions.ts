@@ -685,7 +685,11 @@ export async function setTicketPaidAdmin(
   if (!tk || tk.guildId !== guildId || tk.status === "closed") {
     return { ok: false, error: "Ticket not found or already closed" };
   }
-  await enqueueJob(guildId, "admin_set_paid", { ticketId, paid });
+  await enqueueJob(guildId, "admin_set_paid", {
+    ticketId,
+    paid,
+    staffId: userId,
+  });
   audit(
     guildId,
     userId,
@@ -1265,7 +1269,7 @@ export async function updateReservation(
     paid?: boolean;
   },
 ) {
-  await requireGuildAccess(guildId);
+  const { userId } = await requireGuildAccess(guildId);
   if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
   const r = repos.reservations.getReservation(db(), id);
   if (!r || r.guildId !== guildId) {
@@ -1289,6 +1293,7 @@ export async function updateReservation(
     await enqueueJob(guildId, "admin_set_paid", {
       ticketId: r.ticketId,
       paid: !!patch.paid,
+      staffId: userId,
     });
   }
   rev(guildId);

@@ -222,14 +222,16 @@ export const ticketCommand: SlashCommand = {
         return;
       }
       const nextPaid = !ticket.paid;
-      const { warning } = await setTicketPaid(
+      await setTicketPaid(
         interaction.guild,
         ticket,
         nextPaid,
         guildConfig,
+        interaction.user.id,
       );
       await interaction.reply({
-        content: `${nextPaid ? "💰 Marked as **paid**" : "Marked as **not paid**"}${warning ? ` (${warning})` : ""}.`,
+        content: "Done.",
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
