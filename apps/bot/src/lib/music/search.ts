@@ -57,28 +57,10 @@ async function dumpJsonLines(
   return results;
 }
 
-/**
- * Resolve a `!play` argument — a bare search term or a track/playlist URL —
- * into track metadata. Bare search terms go to YouTube (`ytsearch1:`) when a
- * `cookies.txt` is present (see ytdlp.ts) — a real logged-in session gets
- * past YouTube's "Sign in to confirm you're not a bot" block on anonymous
- * cloud/VPS IPs, which no client-spoofing flag gets around. Without cookies,
- * search falls back to SoundCloud, which has no such check but caps
- * label-owned tracks to a 30s preview for anyone not logged into SoundCloud
- * itself. A direct URL (YouTube, SoundCloud, or anything yt-dlp supports)
- * still works as given either way. The actual streamable URL is resolved
- * lazily per track at playback time (see player.ts), since flat-playlist
- * entries here don't carry a playable format.
- */
-export async function resolveQuery(query: string): Promise<ResolvedTrack[]> {
-  const trimmed = query.trim();
-  const isUrl = URL_RE.test(trimmed);
-  const searchPrefix = hasYouTubeCookies() ? "ytsearch1:" : "scsearch1:";
-  const target = isUrl ? trimmed : `${searchPrefix}${trimmed}`;
-  const flags = isUrl
-    ? { flatPlaylist: true, playlistEnd: 50 }
-    : { noPlaylist: true };
-
+async function resolveTarget(
+  target: string,
+  flags: Record<string, unknown>,
+): Promise<ResolvedTrack[]> {
   try {
     const entries = await dumpJsonLines(target, flags);
     const tracks: ResolvedTrack[] = [];
@@ -91,4 +73,37 @@ export async function resolveQuery(query: string): Promise<ResolvedTrack[]> {
     logger.error("yt-dlp resolve failed", err);
     return [];
   }
+}
+
+const SEARCH_FLAGS = { noPlaylist: true };
+
+/**
+ * Resolve a `!play` argument — a bare search term or a track/playlist URL —
+ * into track metadata. A direct URL (YouTube, SoundCloud, or anything
+ * yt-dlp supports) is tried as given. A bare search term tries YouTube
+ * first when a `cookies.txt` is present (see ytdlp.ts) — a real logged-in
+ * session gets past YouTube's "Sign in to confirm you're not a bot" block
+ * on anonymous cloud/VPS IPs — and falls back to SoundCloud if that yields
+ * nothing, since YouTube's current SABR streaming rollout is separately (and
+ * intermittently) breaking format extraction across multiple yt-dlp player
+ * clients regardless of auth. SoundCloud has no bot-check but caps
+ * label-owned tracks to a 30s preview for non-subscribers. The actual
+ * streamable URL is resolved lazily per track at playback time (see
+ * player.ts), since flat-playlist entries here don't carry a playable format.
+ */
+export async function resolveQuery(query: string): Promise<ResolvedTrack[]> {
+  const trimmed = query.trim();
+  if (URL_RE.test(trimmed)) {
+    return resolveTarget(trimmed, { flatPlaylist: true, playlistEnd: 50 });
+  }
+
+  if (hasYouTubeCookies()) {
+    const fromYouTube = await resolveTarget(
+      `ytsearch1:${trimmed}`,
+      SEARCH_FLAGS,
+    );
+    if (fromYouTube.length > 0) return fromYouTube;
+    logger.warn("YouTube search returned nothing — falling back to SoundCloud");
+  }
+  return resolveTarget(`scsearch1:${trimmed}`, SEARCH_FLAGS);
 }
