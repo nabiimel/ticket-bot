@@ -118,7 +118,7 @@ export function getNotificationFeed(
   for (const r of repos.reservations.listReservations(d, guildId, {
     limit: 2000,
   })) {
-    if (r.status !== "cancelled") {
+    if (r.status === "open") {
       committedRobux += robuxCost(r.qty, rate);
       lastReservationActivityAt = Math.max(
         lastReservationActivityAt,

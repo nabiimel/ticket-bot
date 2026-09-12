@@ -59,12 +59,16 @@ export function countOpen(db: DB, guildId: string): number {
   return r?.n ?? 0;
 }
 
-/** Total rerolls across every non-cancelled reservation (for the budget line). */
+/**
+ * Total rerolls still outstanding (open only) — for the budget line. A done
+ * reservation has already been fulfilled and a cancelled one never happened,
+ * so neither should keep counting against the seller's committed Robux.
+ */
 export function sumRerolls(db: DB, guildId: string): number {
   const r = db
     .prepare(
       `SELECT COALESCE(SUM(qty), 0) AS n FROM reservations
-       WHERE guild_id = ? AND status != 'cancelled'`,
+       WHERE guild_id = ? AND status = 'open'`,
     )
     .get(guildId) as { n: number };
   return r?.n ?? 0;

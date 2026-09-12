@@ -58,7 +58,7 @@ export async function GET(
   }
 
   const committed = rows
-    .filter((r) => r.status !== "cancelled")
+    .filter((r) => r.status === "open")
     .reduce((sum, r) => sum + robuxCost(r.qty, rate), 0);
   const budget = cfg.reservationsRobuxBudget;
 

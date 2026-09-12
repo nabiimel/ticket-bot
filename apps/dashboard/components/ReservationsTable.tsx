@@ -77,9 +77,10 @@ export function ReservationsTable({
     [rows, local],
   );
 
-  // Committed Robux spans every row (not just the current tab).
+  // Committed Robux spans every row (not just the current tab) — only still-
+  // open orders count; a done one is already fulfilled, not a commitment.
   const committed = merged
-    .filter((r) => !removed.has(r.id) && r.status !== "cancelled")
+    .filter((r) => !removed.has(r.id) && r.status === "open")
     .reduce((sum, r) => sum + costOf(r.qty), 0);
   const remaining = budgetDraft - committed;
 
