@@ -73,7 +73,8 @@ jobs:
   # Optional hands-off deploy. Enable by setting repo variable AUTO_DEPLOY=true and
   # secrets DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY. Otherwise deploy manually:
   #   ssh <droplet> 'cd ~/ticket-bot && git pull && docker compose pull \
-  #     && docker compose --profile tools run --rm migrate && docker compose up -d'
+  #     && docker compose --profile tools run --rm migrate && docker compose up -d \
+  #     && docker image prune -af'
   deploy:
     needs: publish
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AUTO_DEPLOY == 'true'
@@ -93,3 +94,9 @@ jobs:
             docker compose --profile tools run --rm migrate
             docker compose up -d
             docker compose ps
+            # Old image layers pile up on every deploy otherwise (each push
+            # leaves the previous version's layers behind) and can fill a
+            # small droplet's disk over enough deploys. Safe to run
+            # unconditionally: prune never removes an image still in use by
+            # an existing container.
+            docker image prune -af
