@@ -106,8 +106,17 @@ const closeButton: ButtonHandler = {
     const guildConfig = interaction.inCachedGuild()
       ? getGuildConfigCached(interaction.guildId!)
       : null;
+    const openReservation = repos.reservations.getOpenForTicket(
+      getDb(),
+      ticketId,
+    );
+    const warning = openReservation
+      ? `${t("ticket.close.openReservationWarning", guildConfig?.language, {
+          buyer: openReservation.gakuranName || openReservation.buyerTag,
+        })}\n`
+      : "";
     await interaction.reply({
-      content: `**${t("ticket.close.confirmTitle", guildConfig?.language)}**\n${t(
+      content: `**${t("ticket.close.confirmTitle", guildConfig?.language)}**\n${warning}${t(
         "ticket.close.confirmBody",
         guildConfig?.language,
       )}`,

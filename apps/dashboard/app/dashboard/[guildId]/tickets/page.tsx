@@ -62,6 +62,16 @@ export default async function TicketsConsole({
       );
     });
 
+  // So the close-confirm dialog can warn about an unfulfilled reservation.
+  const openReservationByTicket = new Map<number, string>();
+  for (const r of repos.reservations.listReservations(db(), guildId, {
+    status: "open",
+  })) {
+    if (r.ticketId != null) {
+      openReservationByTicket.set(r.ticketId, r.gakuranName || r.buyerTag);
+    }
+  }
+
   return (
     <div className="page">
       <PageHeader
@@ -108,6 +118,9 @@ export default async function TicketsConsole({
                   serverNow={serverNow}
                   slaUnclaimedS={slaUnclaimedS}
                   slaNoReplyS={slaNoReplyS}
+                  openReservationLabel={
+                    openReservationByTicket.get(t.id) ?? null
+                  }
                 />
               ))}
             </tbody>

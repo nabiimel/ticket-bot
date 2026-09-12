@@ -13,7 +13,7 @@ import {
   getGuildConfigCached,
 } from "../lib/configCache.js";
 import { isStaff } from "../lib/permissions.js";
-import { buildTicketControls } from "../lib/embeds.js";
+import { buildCloseConfirm, buildTicketControls } from "../lib/embeds.js";
 import { closeTicket, setTicketPaid } from "../lib/ticketManager.js";
 import { logger } from "../lib/logger.js";
 
@@ -315,6 +315,21 @@ export const ticketCommand: SlashCommand = {
       return;
     }
     const reason = interaction.options.getString("reason");
+
+    const openReservation = repos.reservations.getOpenForTicket(db, ticket.id);
+    if (openReservation) {
+      await interaction.reply({
+        content: `**${t("ticket.close.confirmTitle", lang)}**\n${t(
+          "ticket.close.openReservationWarning",
+          lang,
+          { buyer: openReservation.gakuranName || openReservation.buyerTag },
+        )}\n${t("ticket.close.confirmBody", lang)}`,
+        components: [buildCloseConfirm(ticket.id)],
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     await interaction.reply({
       content: t("ticket.close.closing", lang),
       flags: MessageFlags.Ephemeral,

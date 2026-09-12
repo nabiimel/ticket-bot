@@ -23,6 +23,7 @@ export function ConsoleTicketRow({
   serverNow,
   slaUnclaimedS,
   slaNoReplyS,
+  openReservationLabel,
 }: {
   t: TicketRecord;
   category: string;
@@ -32,6 +33,7 @@ export function ConsoleTicketRow({
   serverNow: number;
   slaUnclaimedS: number;
   slaNoReplyS: number;
+  openReservationLabel?: string | null;
 }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -95,7 +97,10 @@ export function ConsoleTicketRow({
     const ok = await confirm({
       title: `Close ticket #${t.number}?`,
       message:
-        "The channel is closed and a transcript is generated, same as the in-Discord Close button.",
+        "The channel is closed and a transcript is generated, same as the in-Discord Close button." +
+        (openReservationLabel
+          ? ` ⚠️ This ticket still has an open reservation for ${openReservationLabel} — closing won't cancel it.`
+          : ""),
       confirmLabel: "Close ticket",
       danger: true,
     });
