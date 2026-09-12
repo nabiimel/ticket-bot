@@ -10,7 +10,9 @@ import {
 import { fmtAgo } from "@/lib/format";
 import {
   addReservation,
+  bulkDeleteReservations,
   bulkSendSnippetToReservations,
+  bulkSetReservationsPaid,
   deleteReservation,
   setReservationDone,
   setReservationsBudget,
@@ -281,6 +283,54 @@ export function ReservationsTable({
     });
   };
 
+  const bulkPaid = (paid: boolean) => {
+    const ids = [...selected];
+    start(async () => {
+      const res = await bulkSetReservationsPaid(guildId, ids, paid);
+      if (res.ok) {
+        setLocal((s) => {
+          const n = { ...s };
+          for (const id of ids) n[id] = { ...n[id], paid };
+          return n;
+        });
+        toast.success(`Updated ${res.changed ?? 0}`);
+        setSelected(new Set());
+      } else {
+        toast.error(res.error ?? "Couldn't update");
+      }
+    });
+  };
+
+  const bulkDelete = async () => {
+    const ids = [...selected];
+    const ok = await confirm({
+      title: "Delete selected?",
+      message: `This removes ${ids.length} reservation${ids.length === 1 ? "" : "s"}. It can't be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    setRemoved((s) => {
+      const n = new Set(s);
+      for (const id of ids) n.add(id);
+      return n;
+    });
+    setSelected(new Set());
+    start(async () => {
+      const res = await bulkDeleteReservations(guildId, ids);
+      if (res.ok) {
+        toast.success(`Deleted ${res.deleted ?? ids.length}`);
+      } else {
+        setRemoved((s) => {
+          const n = new Set(s);
+          for (const id of ids) n.delete(id);
+          return n;
+        });
+        toast.error(res.error ?? "Couldn't delete");
+      }
+    });
+  };
+
   return (
     <div className={`space-y-3 ${pending ? "opacity-70" : ""}`}>
       {/* Budget banner */}
@@ -431,6 +481,31 @@ export function ReservationsTable({
             onClick={() => void bulkSend()}
           >
             Send snippet
+          </button>
+          <span className="text-dim">·</span>
+          <button
+            type="button"
+            className="btn-secondary !py-1 text-xs"
+            disabled={pending}
+            onClick={() => bulkPaid(true)}
+          >
+            Mark paid
+          </button>
+          <button
+            type="button"
+            className="btn-secondary !py-1 text-xs"
+            disabled={pending}
+            onClick={() => bulkPaid(false)}
+          >
+            Mark not paid
+          </button>
+          <button
+            type="button"
+            className="btn-ghost !py-1 text-xs text-danger"
+            disabled={pending}
+            onClick={() => void bulkDelete()}
+          >
+            Delete
           </button>
           <button
             type="button"

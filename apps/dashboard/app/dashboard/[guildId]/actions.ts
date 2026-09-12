@@ -1451,3 +1451,81 @@ export async function bulkSendSnippetToReservations(
     skipped: ids.length - eligible.length,
   };
 }
+
+function cleanIds(ids: number[]): number[] {
+  return Array.from(
+    new Set(
+      (Array.isArray(ids) ? ids : [])
+        .map((n) => Math.trunc(Number(n)))
+        .filter((n) => Number.isFinite(n) && n > 0),
+    ),
+  ).slice(0, 200);
+}
+
+/** Toggle paid status for every selected row (ticket-linked ones relocate too). */
+export async function bulkSetReservationsPaid(
+  guildId: string,
+  reservationIds: number[],
+  paid: boolean,
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+
+  const ids = cleanIds(reservationIds);
+  if (ids.length === 0) return { ok: false, error: "Nothing selected" };
+
+  let changed = 0;
+  for (const id of ids) {
+    const r = repos.reservations.getReservation(db(), id);
+    if (!r || r.guildId !== guildId || r.paid === paid) continue;
+    repos.reservations.updateReservation(db(), id, { paid });
+    changed++;
+    if (r.ticketId != null) {
+      await enqueueJob(guildId, "admin_set_paid", {
+        ticketId: r.ticketId,
+        paid,
+        staffId: userId,
+      });
+    }
+  }
+  if (changed > 0) {
+    audit(
+      guildId,
+      userId,
+      "reservation.bulkPaid",
+      `Marked ${changed} reservation(s) as ${paid ? "paid" : "not paid"}`,
+    );
+  }
+  rev(guildId);
+  return { ok: true, changed };
+}
+
+/** Delete every selected row. */
+export async function bulkDeleteReservations(
+  guildId: string,
+  reservationIds: number[],
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+
+  const ids = cleanIds(reservationIds);
+  if (ids.length === 0) return { ok: false, error: "Nothing selected" };
+
+  let deleted = 0;
+  for (const id of ids) {
+    const r = repos.reservations.getReservation(db(), id);
+    if (!r || r.guildId !== guildId) continue;
+    repos.reservations.deleteReservation(db(), id);
+    deleted++;
+  }
+  if (deleted > 0) {
+    audit(
+      guildId,
+      userId,
+      "reservation.bulkDelete",
+      `Deleted ${deleted} reservation(s)`,
+    );
+  }
+  rev(guildId);
+  return { ok: true, deleted };
+}
