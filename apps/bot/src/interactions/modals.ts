@@ -1,5 +1,5 @@
 import { MessageFlags } from "discord.js";
-import { t } from "@ticketbot/shared";
+import { t, validateFormAnswer } from "@ticketbot/shared";
 import { repos } from "@ticketbot/db";
 import type { ModalHandler } from "../registry.js";
 import { getDb } from "../lib/db.js";
@@ -20,11 +20,20 @@ const formModal: ModalHandler = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const answers: FormAnswer[] = [];
+    const errors: string[] = [];
     for (const field of category?.form ?? []) {
       const value = interaction.fields
         .getTextInputValue(`field:${field.key}`)
         .trim();
+      const error = validateFormAnswer(field, value);
+      if (error) errors.push(error);
       answers.push({ key: field.key, label: field.label, value });
+    }
+    if (errors.length > 0) {
+      await interaction.editReply({
+        content: `Please fix the following and try again:\n${errors.map((e) => `• ${e}`).join("\n")}`,
+      });
+      return;
     }
     await completeOpen(interaction, categoryId, answers);
   },

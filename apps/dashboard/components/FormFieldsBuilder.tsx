@@ -92,7 +92,12 @@ export function FormFieldsBuilder({
             >
               <div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[#b5bac1]">
                 {f.label || "Untitled"}{" "}
-                {f.required && <span className="text-[#f23f42]">*</span>}
+                {f.required && <span className="text-[#f23f42]">*</span>}{" "}
+                {f.validation === "numeric" && (
+                  <span className="normal-case text-[#949ba4]">
+                    (numbers only)
+                  </span>
+                )}
               </div>
               <div
                 className={`rounded bg-[#1e1f22] px-3 text-sm text-[#87898c] ${
@@ -154,6 +159,18 @@ export function FormFieldsBuilder({
                       onChange={(e) => set(i, { required: e.target.checked })}
                     />
                     Required
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={f.validation === "numeric"}
+                      onChange={(e) =>
+                        set(i, {
+                          validation: e.target.checked ? "numeric" : undefined,
+                        })
+                      }
+                    />
+                    Numbers only
                   </label>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">

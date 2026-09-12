@@ -116,7 +116,11 @@ export async function startOpen(
             : TextInputStyle.Short,
         )
         .setRequired(field.required);
-      const ph = renderTemplate(field.placeholder, fieldCtx);
+      // Discord's modal text inputs have no numeric-only mode, so hint it in
+      // the placeholder — the actual rule is enforced on submit (modals.ts).
+      const ph =
+        renderTemplate(field.placeholder, fieldCtx) ||
+        (field.validation === "numeric" ? "Numbers only" : undefined);
       if (ph) input.setPlaceholder(ph.slice(0, 100));
       if (field.minLength != null) input.setMinLength(field.minLength);
       if (field.maxLength != null) input.setMaxLength(field.maxLength);

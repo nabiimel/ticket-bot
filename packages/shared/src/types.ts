@@ -54,6 +54,10 @@ export interface ButtonConfig {
 
 export type FormFieldStyle = "short" | "paragraph";
 
+/** "numeric" = digits only (0-9), enforced on submit since Discord's modal
+ * text inputs have no native number-only mode. */
+export type FormFieldValidation = "numeric";
+
 export interface FormField {
   /** Stable key used to store the response. */
   key: string;
@@ -63,6 +67,7 @@ export interface FormField {
   minLength?: number;
   maxLength?: number;
   placeholder?: string;
+  validation?: FormFieldValidation;
 }
 
 // ---------------------------------------------------------------------------
