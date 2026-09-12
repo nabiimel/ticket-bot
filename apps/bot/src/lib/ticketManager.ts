@@ -3,6 +3,7 @@ import {
   AttachmentBuilder,
   ChannelType,
   EmbedBuilder,
+  MessageType,
   PermissionFlagsBits,
   type Guild,
   type GuildMember,
@@ -166,7 +167,7 @@ export async function createTicket(args: {
     ...category.pingRoleIds.map((r) => `<@&${r}>`),
   ].join(" ");
 
-  await channel.send({
+  const welcomeMsg = await channel.send({
     content: pingContent || undefined,
     embeds,
     files: welcomeFiles,
@@ -180,6 +181,22 @@ export async function createTicket(args: {
       roles: category.pingRoleIds,
     },
   });
+  // Pinned so the controls stay one click away (via Discord's pinned-messages
+  // panel) once the conversation scrolls past the welcome message. Discord
+  // auto-posts a "pinned a message" system notice on pin — delete it so a
+  // fresh ticket channel doesn't start with clutter.
+  await welcomeMsg
+    .pin()
+    .then(async () => {
+      const recent = await channel.messages
+        .fetch({ limit: 5 })
+        .catch(() => null);
+      const pinNotice = recent?.find(
+        (m) => m.type === MessageType.ChannelPinnedMessage,
+      );
+      if (pinNotice) await pinNotice.delete().catch(() => {});
+    })
+    .catch((err) => logger.warn("failed to pin ticket welcome message", err));
 
   const logCh = await fetchTextChannel(guild, guildConfig.logChannelId);
   if (logCh) {
