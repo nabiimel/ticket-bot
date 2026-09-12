@@ -8,7 +8,6 @@ import * as ready from "./events/ready.js";
 import * as interactionCreate from "./events/interactionCreate.js";
 import * as messageCreate from "./events/messageCreate.js";
 import * as channelDelete from "./events/channelDelete.js";
-import * as voiceStateUpdate from "./events/voiceStateUpdate.js";
 import { guildCreate, guildDelete } from "./events/guilds.js";
 import { processJobsNow, startJobsWorker, stopJobsWorker } from "./lib/jobs.js";
 import { startInternalServer } from "./lib/internalServer.js";
@@ -23,7 +22,6 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildVoiceStates,
   ],
   partials: [Partials.Channel],
 });
@@ -42,9 +40,6 @@ client.on(messageCreate.name, (m) => {
 });
 client.on(channelDelete.name, (ch) => {
   void channelDelete.execute(ch);
-});
-client.on(voiceStateUpdate.name, (oldState, newState) => {
-  voiceStateUpdate.execute(oldState, newState);
 });
 client.on(guildCreate.name, (g) => guildCreate.execute(g));
 client.on(guildDelete.name, (g) => guildDelete.execute(g));

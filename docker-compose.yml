@@ -19,13 +19,6 @@ services:
     restart: unless-stopped
     command: npm run start:bot
     <<: *logging
-    # Discord voice needs a live outbound UDP round-trip per call (ip discovery
-    # + RTP). The host's iptables FORWARD/DOCKER chain only allows a few
-    # inbound TCP ports and drops everything else, including the container's
-    # outbound voice UDP — INPUT/OUTPUT on the host itself are unrestricted, so
-    # host networking sidesteps that chain entirely instead of trying to thread
-    # arbitrary UDP through it.
-    network_mode: host
     environment:
       DATABASE_PATH: /data/ticketbot.db
       DATA_DIR: /data
@@ -37,6 +30,8 @@ services:
       LOG_WEBHOOK_URL: ${LOG_WEBHOOK_URL:-}
     volumes:
       - ticketbot-data:/data
+    expose:
+      - "8787"
     labels:
       autoheal: "true"
     healthcheck:
@@ -58,12 +53,6 @@ services:
     <<: *logging
     depends_on:
       - bot
-    # The bot now runs with network_mode: host (see its comment above) and its
-    # internal server binds to loopback only so host networking can't expose
-    # it publicly — so the dashboard can no longer reach it at all (not even
-    # via a "bot" hostname or host.docker.internal). BOT_INTERNAL_URL is left
-    # unset; enqueueJob's wake call already no-ops without it and falls back
-    # to the bot's 3s poll, which was always the correctness guarantee here.
     environment:
       DATABASE_PATH: /data/ticketbot.db
       DATA_DIR: /data
@@ -72,6 +61,7 @@ services:
       DISCORD_BOT_TOKEN: ${DISCORD_TOKEN}
       AUTH_SECRET: ${AUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      BOT_INTERNAL_URL: http://bot:8787
       INTERNAL_WAKE_SECRET: ${INTERNAL_WAKE_SECRET}
       DEV_DISCORD_IDS: ${DEV_DISCORD_IDS:-}
       ROBLOX_STOCK_SECRET: ${ROBLOX_STOCK_SECRET:-}

@@ -1,8 +1,7 @@
 # Shared image for both the bot and the dashboard. The compose file picks the
 # command per service.
-FROM node:22-bookworm-slim AS base
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates python3 python-is-python3 make g++ \
-  && update-ca-certificates \
+FROM node:20-bookworm-slim AS base
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
