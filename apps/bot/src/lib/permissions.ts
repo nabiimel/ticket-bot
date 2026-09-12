@@ -76,7 +76,8 @@ export function buildTicketOverwrites(
       allow:
         allow |
         PermissionFlagsBits.ManageChannels |
-        PermissionFlagsBits.ManageRoles,
+        PermissionFlagsBits.ManageRoles |
+        PermissionFlagsBits.ManageMessages,
     });
   }
   return overwrites;

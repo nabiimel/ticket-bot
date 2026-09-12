@@ -167,25 +167,30 @@ export async function createTicket(args: {
     ...category.pingRoleIds.map((r) => `<@&${r}>`),
   ].join(" ");
 
-  const welcomeMsg = await channel.send({
+  await channel.send({
     content: pingContent || undefined,
     embeds,
     files: welcomeFiles,
-    components: [
-      buildTicketControls(ticket.id, {
-        claimEnabled: guildConfig.claimingEnabled,
-      }),
-    ],
     allowedMentions: {
       users: [opener.id],
       roles: category.pingRoleIds,
     },
   });
-  // Pinned so the controls stay one click away (via Discord's pinned-messages
-  // panel) once the conversation scrolls past the welcome message. Discord
-  // auto-posts a "pinned a message" system notice on pin — delete it so a
-  // fresh ticket channel doesn't start with clutter.
-  await welcomeMsg
+
+  // The controls live in their own (pinned) message so only the buttons —
+  // not the welcome embed / form responses — clutter the pinned-messages
+  // panel once the conversation scrolls past them.
+  const controlsMsg = await channel.send({
+    content: t("ticket.controlsLabel", guildConfig.language),
+    components: [
+      buildTicketControls(ticket.id, {
+        claimEnabled: guildConfig.claimingEnabled,
+      }),
+    ],
+  });
+  // Discord auto-posts a "pinned a message" system notice on pin — delete it
+  // so a fresh ticket channel doesn't start out cluttered.
+  await controlsMsg
     .pin()
     .then(async () => {
       const recent = await channel.messages
@@ -196,7 +201,7 @@ export async function createTicket(args: {
       );
       if (pinNotice) await pinNotice.delete().catch(() => {});
     })
-    .catch((err) => logger.warn("failed to pin ticket welcome message", err));
+    .catch((err) => logger.warn("failed to pin ticket controls message", err));
 
   const logCh = await fetchTextChannel(guild, guildConfig.logChannelId);
   if (logCh) {

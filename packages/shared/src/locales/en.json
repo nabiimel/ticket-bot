@@ -22,6 +22,7 @@
   "ticket.claim.claimedBy": "Claimed by {claimed_by.mention}",
   "ticket.claim.notStaff": "Only staff can claim tickets.",
   "ticket.claim.alreadyClaimed": "This ticket is already claimed by {claimed_by}.",
+  "ticket.controlsLabel": "**Ticket controls**",
   "ticket.close.confirmTitle": "Close this ticket?",
   "ticket.close.confirmBody": "A transcript will be saved and the channel will be removed.",
   "ticket.close.openReservationWarning": "⚠️ This ticket still has an open reservation for **{buyer}** — closing won't cancel it.",
