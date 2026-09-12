@@ -61,6 +61,15 @@ export default async function ReservationsPage({
     .listSnippets(db(), guildId)
     .map((s) => ({ id: s.id, name: s.name }));
 
+  const budgetHistory = repos.audit
+    .listAuditByAction(db(), guildId, "reservation.budget", 20)
+    .map((a) => ({
+      id: a.id,
+      summary: a.summary,
+      actorName: names.get(a.actorId) ?? null,
+      at: a.createdAt,
+    }));
+
   const data = rows.map((r) => ({
     ...r,
     buyerName:
@@ -111,6 +120,7 @@ export default async function ReservationsPage({
         rate={rate}
         budget={cfg.reservationsRobuxBudget}
         stockSyncedAt={cfg.reservationsStockSyncedAt}
+        budgetHistory={budgetHistory}
       />
     </div>
   );

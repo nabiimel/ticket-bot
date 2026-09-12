@@ -1,5 +1,5 @@
 import { MessageFlags, type ButtonInteraction } from "discord.js";
-import { t } from "@ticketbot/shared";
+import { robuxCost, t, type RobuxRate } from "@ticketbot/shared";
 import { repos } from "@ticketbot/db";
 import type { ButtonHandler } from "../registry.js";
 import { getDb } from "../lib/db.js";
@@ -96,6 +96,12 @@ const reserveButton: ButtonHandler = {
       qty,
       addedBy: interaction.user.id,
     });
+    repos.audit.logAudit(db, {
+      guildId: ticket.guildId,
+      actorId: interaction.user.id,
+      action: "reservation.add",
+      summary: `Reserved for ${gakuranName || buyerTag}${qty ? ` (${qty} RR's)` : ""}`,
+    });
 
     // Redraw the stock embed so Reserved / Remaining reflect this reservation.
     const budget = guildConfig.reservationsRobuxBudget;
@@ -104,10 +110,25 @@ const reserveButton: ButtonHandler = {
       previous: budget,
     });
 
+    const rate: RobuxRate = {
+      rerollUnit: guildConfig.reservationsRerollUnit,
+      robuxPerUnit: guildConfig.reservationsRobuxPerUnit,
+      discountPct: guildConfig.reservationsDiscountPct,
+    };
+    const committed = robuxCost(
+      repos.reservations.sumRerolls(db, ticket.guildId),
+      rate,
+    );
+    const over = committed - budget;
+
+    let content = t("reservation.added", guildConfig.language, {
+      buyer: buyerTag,
+    });
+    if (over > 0) {
+      content += `\n${t("reservation.overBudget", guildConfig.language, { over: over.toLocaleString() })}`;
+    }
     await interaction.reply({
-      content: t("reservation.added", guildConfig.language, {
-        buyer: buyerTag,
-      }),
+      content,
       flags: MessageFlags.Ephemeral,
     });
 

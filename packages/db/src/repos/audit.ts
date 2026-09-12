@@ -44,3 +44,19 @@ export function listAudit(db: DB, guildId: string, limit = 100): AuditEntry[] {
     .all(guildId, limit)
     .map(map);
 }
+
+export function listAuditByAction(
+  db: DB,
+  guildId: string,
+  action: string,
+  limit = 50,
+): AuditEntry[] {
+  return db
+    .prepare(
+      `SELECT * FROM config_audit
+       WHERE guild_id = ? AND action = ?
+       ORDER BY id DESC LIMIT ?`,
+    )
+    .all(guildId, action, limit)
+    .map(map);
+}

@@ -288,7 +288,9 @@ export type NotificationType =
   | "job_failed"
   | "config_changed"
   | "ticket_opened"
-  | "ticket_closed";
+  | "ticket_closed"
+  | "reservation_stale"
+  | "reservation_over_budget";
 
 export type NotificationSeverity = "info" | "warn" | "critical";
 

@@ -23,6 +23,8 @@ const LABEL: Record<NotificationType, string> = {
   config_changed: "Config",
   ticket_opened: "Opened",
   ticket_closed: "Closed",
+  reservation_stale: "Stale",
+  reservation_over_budget: "Budget",
 };
 
 type Filter = "all" | "attention" | "activity";

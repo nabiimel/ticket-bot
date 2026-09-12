@@ -8,11 +8,13 @@ import {
   TICKET_PRIORITIES,
   isSupportedLanguage,
   isValidEmoji,
+  robuxCost,
   type ButtonConfig,
   type DashboardLevel,
   type EmbedConfig,
   type FormField,
   type PanelStyle,
+  type RobuxRate,
   type TicketPriority,
 } from "@ticketbot/shared";
 import { auth } from "@/auth";
@@ -1226,7 +1228,24 @@ export async function addReservation(
   audit(guildId, userId, "reservation.add", `Added walk-in “${gakuranName}”`);
   await refreshStockEmbed(guildId);
   rev(guildId);
-  return { ok: true, id: r.id };
+
+  const cfg = repos.guildConfig.getGuildConfig(db(), guildId);
+  const rate: RobuxRate = {
+    rerollUnit: cfg.reservationsRerollUnit,
+    robuxPerUnit: cfg.reservationsRobuxPerUnit,
+    discountPct: cfg.reservationsDiscountPct,
+  };
+  const committed = robuxCost(
+    repos.reservations.sumRerolls(db(), guildId),
+    rate,
+  );
+  const over = committed - cfg.reservationsRobuxBudget;
+  const warning =
+    over > 0
+      ? `This puts open reservations ${over.toLocaleString()} Robux over budget.`
+      : undefined;
+
+  return { ok: true, id: r.id, warning };
 }
 
 /** Tick a buyer off (done) or move them back to the open queue. */
@@ -1275,7 +1294,7 @@ export async function updateReservation(
   if (!r || r.guildId !== guildId) {
     return { ok: false, error: "Reservation not found" };
   }
-  repos.reservations.updateReservation(db(), id, {
+  const updated = repos.reservations.updateReservation(db(), id, {
     ...(patch.note !== undefined ? { note: cleanNote(patch.note) } : {}),
     ...(patch.qty !== undefined ? { qty: cleanQty(patch.qty) } : {}),
     ...(patch.gakuranName !== undefined
@@ -1286,6 +1305,39 @@ export async function updateReservation(
       : {}),
     ...(patch.paid !== undefined ? { paid: !!patch.paid } : {}),
   });
+  if (updated) {
+    const diffs: string[] = [];
+    if (
+      patch.gakuranName !== undefined &&
+      updated.gakuranName !== r.gakuranName
+    ) {
+      diffs.push(
+        `name “${r.gakuranName || "—"}” → “${updated.gakuranName || "—"}”`,
+      );
+    }
+    if (patch.robloxUser !== undefined && updated.robloxUser !== r.robloxUser) {
+      diffs.push(
+        `Roblox user “${r.robloxUser || "—"}” → “${updated.robloxUser || "—"}”`,
+      );
+    }
+    if (patch.qty !== undefined && updated.qty !== r.qty) {
+      diffs.push(`RR's ${r.qty} → ${updated.qty}`);
+    }
+    if (patch.note !== undefined && updated.note !== r.note) {
+      diffs.push("note");
+    }
+    if (patch.paid !== undefined && updated.paid !== r.paid) {
+      diffs.push(updated.paid ? "marked paid" : "marked not paid");
+    }
+    if (diffs.length > 0) {
+      audit(
+        guildId,
+        userId,
+        "reservation.edit",
+        `Edited reservation for ${r.gakuranName || r.buyerTag}: ${diffs.join(", ")}`,
+      );
+    }
+  }
   if (patch.qty !== undefined) await refreshStockEmbed(guildId);
   // A reroll reservation's ticket relocates to the paid category in step —
   // only the bot can move a channel, so this goes through the job queue.

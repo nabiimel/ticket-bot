@@ -1,5 +1,9 @@
 import "server-only";
-import type { FeedNotification } from "@ticketbot/shared";
+import {
+  robuxCost,
+  type FeedNotification,
+  type RobuxRate,
+} from "@ticketbot/shared";
 import { db, repos } from "./db";
 import { fmtDuration } from "./format";
 
@@ -12,6 +16,7 @@ import { fmtDuration } from "./format";
  */
 
 export const LOW_RATING_AT_OR_BELOW = 2;
+export const RESERVATION_STALE_HOURS = 24;
 
 export interface NotificationFeed {
   items: FeedNotification[];
@@ -98,6 +103,50 @@ export function getNotificationFeed(
       title: `A background task failed (${j.type})`,
       body: j.error ? j.error.slice(0, 160) : undefined,
       at: j.processedAt ?? j.createdAt,
+    });
+  }
+
+  // --- Reservations: stale open orders + budget over-commitment ---
+  const rate: RobuxRate = {
+    rerollUnit: cfg.reservationsRerollUnit,
+    robuxPerUnit: cfg.reservationsRobuxPerUnit,
+    discountPct: cfg.reservationsDiscountPct,
+  };
+  const staleAt = nowS - RESERVATION_STALE_HOURS * 3600;
+  let committedRobux = 0;
+  let lastReservationActivityAt = 0;
+  for (const r of repos.reservations.listReservations(d, guildId, {
+    limit: 2000,
+  })) {
+    if (r.status !== "cancelled") {
+      committedRobux += robuxCost(r.qty, rate);
+      lastReservationActivityAt = Math.max(
+        lastReservationActivityAt,
+        r.updatedAt || r.addedAt,
+      );
+    }
+    if (r.status === "open" && r.addedAt <= staleAt) {
+      items.push({
+        key: `reservation_stale:${r.id}`,
+        type: "reservation_stale",
+        severity: "warn",
+        title: `Reservation for ${r.gakuranName || r.buyerTag} is still open`,
+        body: `Added ${age(r.addedAt)}`,
+        at: r.addedAt + RESERVATION_STALE_HOURS * 3600,
+        href: `/dashboard/${guildId}/reservations`,
+      });
+    }
+  }
+  const remainingRobux = cfg.reservationsRobuxBudget - committedRobux;
+  if (remainingRobux < 0) {
+    items.push({
+      key: "reservation_over_budget",
+      type: "reservation_over_budget",
+      severity: "critical",
+      title: `Reservations are ${(-remainingRobux).toLocaleString()} Robux over budget`,
+      body: `Committed ${committedRobux.toLocaleString()} vs ${cfg.reservationsRobuxBudget.toLocaleString()} available`,
+      at: lastReservationActivityAt || nowS,
+      href: `/dashboard/${guildId}/reservations`,
     });
   }
 

@@ -30,6 +30,13 @@ type Row = ReservationRecord & {
 
 const nf = new Intl.NumberFormat("en-US");
 
+type BudgetHistoryEntry = {
+  id: number;
+  summary: string;
+  actorName: string | null;
+  at: number;
+};
+
 export function ReservationsTable({
   guildId,
   tab,
@@ -38,6 +45,7 @@ export function ReservationsTable({
   rate,
   budget,
   stockSyncedAt,
+  budgetHistory,
 }: {
   guildId: string;
   tab: ReservationStatus | "all";
@@ -46,6 +54,7 @@ export function ReservationsTable({
   rate: RobuxRate;
   budget: number;
   stockSyncedAt: number | null;
+  budgetHistory: BudgetHistoryEntry[];
 }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -140,7 +149,7 @@ export function ReservationsTable({
 
   const saveField = (
     r: Row,
-    field: "gakuranName" | "robloxUser" | "qty",
+    field: "gakuranName" | "robloxUser" | "note" | "qty",
     raw: string,
   ) => {
     if (field === "qty") {
@@ -156,7 +165,11 @@ export function ReservationsTable({
     const next = raw.trim();
     if (r[field] === next) return;
     const p =
-      field === "gakuranName" ? { gakuranName: next } : { robloxUser: next };
+      field === "gakuranName"
+        ? { gakuranName: next }
+        : field === "robloxUser"
+          ? { robloxUser: next }
+          : { note: next };
     patch(r.id, p);
     start(async () => {
       const res = await updateReservation(guildId, r.id, p);
@@ -194,6 +207,7 @@ export function ReservationsTable({
   const submitWalkIn = (form: FormData) => {
     const gakuranName = String(form.get("gakuranName") ?? "").trim();
     const robloxUser = String(form.get("robloxUser") ?? "").trim();
+    const note = String(form.get("note") ?? "").trim();
     const qty = Number(form.get("qty") ?? 0);
     if (!gakuranName) {
       toast.error("Enter a Gakuran name");
@@ -203,10 +217,12 @@ export function ReservationsTable({
       const res = await addReservation(guildId, {
         gakuranName,
         robloxUser,
+        note,
         qty,
       });
       if (res.ok) {
         toast.success("Added");
+        if (res.warning) toast.info(res.warning);
         setAdding(false);
       } else {
         toast.error(res.error ?? "Couldn't add");
@@ -308,6 +324,22 @@ export function ReservationsTable({
         </div>
       </div>
 
+      {budgetHistory.length > 0 && (
+        <details className="rounded-md border border-line bg-surface px-4 py-2 text-sm">
+          <summary className="cursor-pointer text-dim">
+            Budget history ({budgetHistory.length})
+          </summary>
+          <ul className="mt-2 space-y-1 text-xs text-faint">
+            {budgetHistory.map((h) => (
+              <li key={h.id}>
+                <span className="text-ink">{h.actorName ?? "Unknown"}</span>{" "}
+                {h.summary.replace(/^Set /, "set ")} · {fmtAgo(h.at)}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <input
           className="input max-w-xs"
@@ -352,6 +384,10 @@ export function ReservationsTable({
               defaultValue={0}
               className="input mt-1 block w-24"
             />
+          </label>
+          <label className="text-xs text-dim">
+            Note
+            <input name="note" className="input mt-1 block w-48" />
           </label>
           <button type="submit" className="btn-primary" disabled={pending}>
             Add
@@ -423,7 +459,7 @@ export function ReservationsTable({
         />
       ) : (
         <div className="overflow-x-auto rounded-card border border-line">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1080px] text-sm">
             <thead>
               <tr className="border-b border-line bg-surface text-left text-xs uppercase tracking-wide text-faint">
                 <th className="w-9 px-3 py-2">
@@ -441,6 +477,7 @@ export function ReservationsTable({
                 </th>
                 <th className="px-3 py-2">Gakuran Name</th>
                 <th className="px-3 py-2">Roblox User</th>
+                <th className="px-3 py-2">Note</th>
                 <th className="w-24 px-3 py-2">RR&apos;s</th>
                 <th className="w-24 px-3 py-2 text-right">Robux</th>
                 <th className="w-28 px-3 py-2">Paid</th>
@@ -483,6 +520,14 @@ export function ReservationsTable({
                       defaultValue={r.robloxUser}
                       placeholder="—"
                       onBlur={(e) => saveField(r, "robloxUser", e.target.value)}
+                    />
+                  </td>
+                  <td className="px-3 py-2 align-middle">
+                    <input
+                      className="input w-full !py-1 text-faint"
+                      defaultValue={r.note}
+                      placeholder="—"
+                      onBlur={(e) => saveField(r, "note", e.target.value)}
                     />
                   </td>
                   <td className="px-3 py-2 align-middle">

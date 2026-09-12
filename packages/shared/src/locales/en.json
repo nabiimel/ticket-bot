@@ -47,6 +47,7 @@
   "reservation.added": "📌 Added **{buyer}** to the reservations list — check it off in the dashboard under Reservations when they're handed their order.",
   "reservation.already": "Already on the reservations list, added {when} by {by}.",
   "reservation.channelNote": "📌 {buyer} added to the reservations list by {by}.",
+  "reservation.overBudget": "⚠️ This puts open reservations **{over}** Robux over the configured budget.",
   "feedback.promptTitle": "How did we do?",
   "feedback.promptBody": "Please rate the support you received for ticket #{ticket.number}.",
   "feedback.thanks": "Thanks for your feedback!",
