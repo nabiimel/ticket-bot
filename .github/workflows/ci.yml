@@ -45,6 +45,14 @@ jobs:
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # publish+deploy share this group (not build, which is safe to run for
+    # every push/PR concurrently) — two runs racing to `docker compose pull`
+    # on the same droplet at once corrupts containerd's content store, as
+    # happened when three rapid pushes landed here in quick succession.
+    # Queue instead of cancelling: never abandon an in-flight deploy.
+    concurrency:
+      group: production-pipeline
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
@@ -81,6 +89,9 @@ jobs:
     needs: publish
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AUTO_DEPLOY == 'true'
     runs-on: ubuntu-latest
+    concurrency:
+      group: production-pipeline
+      cancel-in-progress: false
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
