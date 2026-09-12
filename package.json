@@ -34,6 +34,11 @@
   "engines": {
     "node": ">=20"
   },
+  "overrides": {
+    "discord-html-transcripts": {
+      "undici": "^6.28.0"
+    }
+  },
   "allowScripts": {
     "better-sqlite3@11.10.0": true,
     "esbuild@0.28.2": true,

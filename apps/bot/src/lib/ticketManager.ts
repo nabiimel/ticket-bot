@@ -7,6 +7,7 @@ import {
   type Guild,
   type GuildMember,
   type GuildTextBasedChannel,
+  type Message,
   type TextChannel,
   type User,
 } from "discord.js";
@@ -254,6 +255,73 @@ export async function keepControlsSticky(
   }
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Plain-HTML fallback transcript (timestamp, author, text, attachment links —
+ * no embeds/components/styling) used when the primary renderer throws, so a
+ * library bug never means a ticket's history is silently lost. Content is
+ * escaped since the dashboard serves transcript files as text/html.
+ */
+async function buildFallbackTranscript(
+  channel: GuildTextBasedChannel,
+  ticketNumber: number,
+): Promise<Buffer> {
+  const messages: Message[] = [];
+  let before: string | undefined;
+  for (let i = 0; i < 20; i++) {
+    const batch = await channel.messages.fetch({ limit: 100, before });
+    if (batch.size === 0) break;
+    messages.push(...batch.values());
+    before = batch.last()?.id;
+    if (batch.size < 100) break;
+  }
+  messages.reverse();
+
+  const rows = messages
+    .map((m) => {
+      const author = escapeHtml(m.author?.tag ?? m.author?.id ?? "Unknown");
+      const time = new Date(m.createdTimestamp).toISOString();
+      const content = m.content
+        ? escapeHtml(m.content)
+        : "<i>(no text content)</i>";
+      const attachments = [...m.attachments.values()]
+        .map(
+          (a) =>
+            `<div class="attachment">📎 <a href="${escapeHtml(a.url)}">${escapeHtml(a.name ?? a.url)}</a></div>`,
+        )
+        .join("");
+      const embedNote = m.embeds.length
+        ? `<div class="note">[${m.embeds.length} embed(s) not shown in this simplified transcript]</div>`
+        : "";
+      return `<div class="msg"><div class="meta">${time} — <b>${author}</b></div><div class="content">${content}</div>${attachments}${embedNote}</div>`;
+    })
+    .join("\n");
+
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"><title>Ticket #${ticketNumber} transcript</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#313338;color:#dbdee1;padding:16px;}
+.msg{margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #3f4147;}
+.meta{color:#949ba4;font-size:12px;}
+.content{white-space:pre-wrap;word-break:break-word;}
+.attachment,.note{color:#949ba4;font-size:12px;margin-top:4px;}
+</style></head>
+<body>
+<p><i>Simplified transcript — the rich renderer failed for this ticket, so this is a plain fallback.</i></p>
+${rows}
+</body></html>`;
+
+  return Buffer.from(html, "utf-8");
+}
+
 /** Generate a transcript, notify the opener, log, then delete/archive the channel. */
 export async function closeTicket(args: {
   guild: Guild;
@@ -288,10 +356,22 @@ export async function closeTicket(args: {
       poweredBy: false,
       saveImages: true,
     })) as Buffer;
+  } catch (err) {
+    logger.error(
+      "transcript generation failed, falling back to a plain transcript",
+      err,
+    );
+    transcriptBuffer = await buildFallbackTranscript(
+      channel,
+      ticket.number,
+    ).catch((fallbackErr) => {
+      logger.error("fallback transcript generation also failed", fallbackErr);
+      return null;
+    });
+  }
+  if (transcriptBuffer) {
     mkdirSync(transcriptsDir(), { recursive: true });
     writeFileSync(transcriptsDir(ticket.id), transcriptBuffer);
-  } catch (err) {
-    logger.error("transcript generation failed", err);
   }
 
   // 2. Post transcript to the transcript channel
