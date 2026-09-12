@@ -15,6 +15,7 @@ import {
   type PanelStyle,
   type TicketPriority,
 } from "@ticketbot/shared";
+import { auth } from "@/auth";
 import { requireGuildAccess } from "@/lib/guild-access";
 import { db, repos } from "@/lib/db";
 import { enqueueJob } from "@/lib/enqueue";
@@ -961,6 +962,24 @@ export async function markNotificationsRead(guildId: string) {
   const { userId } = await requireGuildAccess(guildId);
   repos.notifications.markAllRead(db(), guildId, userId);
   rev(guildId);
+  return { ok: true };
+}
+
+/**
+ * Called periodically by a client-side heartbeat while someone's on this
+ * guild's dashboard, so the header can show who else is currently viewing it.
+ * No `rev()` — this must not force-refresh whoever calls it.
+ */
+export async function heartbeatPresence(guildId: string) {
+  const { userId } = await requireGuildAccess(guildId);
+  const session = await auth();
+  repos.presence.touch(
+    db(),
+    guildId,
+    userId,
+    session?.user?.name ?? "Someone",
+    session?.user?.image ?? null,
+  );
   return { ok: true };
 }
 

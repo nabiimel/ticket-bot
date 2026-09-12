@@ -9,6 +9,8 @@ import { Icon } from "@/components/icons";
 import { SideNav, type NavItem } from "@/components/SideNav";
 import { MobileNav } from "@/components/MobileNav";
 import { NotificationBell } from "@/components/NotificationBell";
+import { PresenceAvatars } from "@/components/PresenceAvatars";
+import { PresenceHeartbeat } from "@/components/PresenceHeartbeat";
 import { ToastProvider } from "@/components/Toast";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -130,6 +132,12 @@ export default async function GuildLayout({
     ? getNotificationFeed(guildId, me.discordId, 30)
     : { items: [], unread: 0, lastSeen: 0 };
 
+  // Who else is currently on this dashboard (heartbeat, see PresenceHeartbeat).
+  const PRESENCE_TTL_S = 60;
+  const others = repos.presence
+    .listActive(db(), guildId, Math.floor(Date.now() / 1000) - PRESENCE_TTL_S)
+    .filter((p) => p.userId !== me?.discordId);
+
   const navItems: NavItem[] = visibleNav.map((item) => ({
     href: `/dashboard/${guildId}${item.href}`,
     label: item.label,
@@ -149,6 +157,7 @@ export default async function GuildLayout({
   return (
     <div className="relative z-10 min-h-screen">
       <NavigationGuard />
+      <PresenceHeartbeat guildId={guildId} />
       <header className="sticky top-0 z-20 border-b border-line bg-[var(--bg-glass)] shadow-sm backdrop-blur-xl">
         <div className="flex w-full items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3.5">
@@ -175,6 +184,7 @@ export default async function GuildLayout({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <PresenceAvatars entries={others} />
             {me && (
               <div
                 className="hidden items-center gap-2 rounded-full bg-surface-2 py-1 pl-1 pr-3 sm:flex"

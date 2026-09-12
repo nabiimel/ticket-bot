@@ -305,6 +305,14 @@ export interface FeedNotification {
   href?: string;
 }
 
+/** One viewer currently on a guild's dashboard (heartbeat-based presence). */
+export interface DashboardPresenceEntry {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  lastSeenAt: number;
+}
+
 // ---------------------------------------------------------------------------
 // Applications
 // ---------------------------------------------------------------------------

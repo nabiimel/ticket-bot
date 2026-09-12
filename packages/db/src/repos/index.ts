@@ -15,3 +15,4 @@ export * as notifications from "./notifications.js";
 export * as dashboardGrants from "./dashboardGrants.js";
 export * as applications from "./applications.js";
 export * as reservations from "./reservations.js";
+export * as presence from "./presence.js";
