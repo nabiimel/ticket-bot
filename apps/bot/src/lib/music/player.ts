@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import type { Readable } from "node:stream";
 import ffmpegPath from "ffmpeg-static";
-import { ytdlpExec } from "./ytdlp.js";
+import { cookiesFlags, ytdlpExec } from "./ytdlp.js";
 import {
   AudioPlayerStatus,
   StreamType,
@@ -47,6 +47,7 @@ function buildStream(url: string): {
     noPlaylist: true,
     quiet: true,
     noWarnings: true,
+    ...cookiesFlags(),
   });
 
   const ff = spawn(

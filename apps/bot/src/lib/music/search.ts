@@ -1,4 +1,4 @@
-import { ytdlpExec } from "./ytdlp.js";
+import { cookiesFlags, hasYouTubeCookies, ytdlpExec } from "./ytdlp.js";
 import { logger } from "../logger.js";
 
 export interface ResolvedTrack {
@@ -41,6 +41,7 @@ async function dumpJsonLines(
     dumpJson: true,
     noWarnings: true,
     quiet: true,
+    ...cookiesFlags(),
     ...flags,
   });
   const results: Record<string, unknown>[] = [];
@@ -58,18 +59,22 @@ async function dumpJsonLines(
 
 /**
  * Resolve a `!play` argument — a bare search term or a track/playlist URL —
- * into track metadata. Bare search terms go to SoundCloud (`scsearch1:`):
- * YouTube blocks anonymous yt-dlp requests from most cloud/VPS IP ranges with
- * a "Sign in to confirm you're not a bot" error that no client-spoofing flag
- * gets around, while SoundCloud has no such check. A direct URL (YouTube,
- * SoundCloud, or anything yt-dlp supports) still works as given. The actual
- * streamable URL is resolved lazily per track at playback time (see
- * player.ts), since flat-playlist entries here don't carry a playable format.
+ * into track metadata. Bare search terms go to YouTube (`ytsearch1:`) when a
+ * `cookies.txt` is present (see ytdlp.ts) — a real logged-in session gets
+ * past YouTube's "Sign in to confirm you're not a bot" block on anonymous
+ * cloud/VPS IPs, which no client-spoofing flag gets around. Without cookies,
+ * search falls back to SoundCloud, which has no such check but caps
+ * label-owned tracks to a 30s preview for anyone not logged into SoundCloud
+ * itself. A direct URL (YouTube, SoundCloud, or anything yt-dlp supports)
+ * still works as given either way. The actual streamable URL is resolved
+ * lazily per track at playback time (see player.ts), since flat-playlist
+ * entries here don't carry a playable format.
  */
 export async function resolveQuery(query: string): Promise<ResolvedTrack[]> {
   const trimmed = query.trim();
   const isUrl = URL_RE.test(trimmed);
-  const target = isUrl ? trimmed : `scsearch1:${trimmed}`;
+  const searchPrefix = hasYouTubeCookies() ? "ytsearch1:" : "scsearch1:";
+  const target = isUrl ? trimmed : `${searchPrefix}${trimmed}`;
   const flags = isUrl
     ? { flatPlaylist: true, playlistEnd: 50 }
     : { noPlaylist: true };

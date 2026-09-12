@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { dataDir } from "@ticketbot/db";
 import ytdlpDefault from "yt-dlp-exec";
 
 /**
@@ -27,3 +30,19 @@ export const ytdlpExec = (
   url: string,
   flags?: Record<string, unknown>,
 ): YtDlpChildProcess => ytdlp.exec(url, flags);
+
+const COOKIES_PATH = join(dataDir(), "cookies.txt");
+
+/**
+ * If an operator has dropped a `cookies.txt` (Netscape format, exported from
+ * a logged-in browser) into the persistent data dir, use it — this is what
+ * lets YouTube requests past its anonymous-IP bot-check. Absent by default;
+ * everything falls back to working without it (see search.ts).
+ */
+export function hasYouTubeCookies(): boolean {
+  return existsSync(COOKIES_PATH);
+}
+
+export function cookiesFlags(): Record<string, unknown> {
+  return hasYouTubeCookies() ? { cookies: COOKIES_PATH } : {};
+}
