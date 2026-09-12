@@ -471,6 +471,9 @@ export async function closeTicket(args: {
  * only the parent (no permissionOverwrites) leaves the channel's existing
  * access untouched. Posts a visible confirmation in the channel itself so
  * the change is equally noticeable regardless of which surface triggered it.
+ * Also syncs the ticket's linked reservation (if any) so paid status stays
+ * consistent whichever side — Tickets page, Reservations page, or Discord —
+ * it was changed from.
  */
 export async function setTicketPaid(
   guild: Guild,
@@ -481,6 +484,11 @@ export async function setTicketPaid(
 ): Promise<{ moved: boolean; warning: string | null }> {
   const db = getDb();
   repos.tickets.setPaid(db, ticket.id, paid);
+
+  const linkedReservation = repos.reservations.getByTicket(db, ticket.id);
+  if (linkedReservation && linkedReservation.paid !== paid) {
+    repos.reservations.updateReservation(db, linkedReservation.id, { paid });
+  }
 
   const ch =
     guild.channels.cache.get(ticket.channelId) ??

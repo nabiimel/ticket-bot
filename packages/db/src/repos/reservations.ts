@@ -90,6 +90,19 @@ export function getOpenForTicket(
   return r ? map(r) : null;
 }
 
+/** The most recent reservation tied to a ticket, regardless of status. */
+export function getByTicket(
+  db: DB,
+  ticketId: number,
+): ReservationRecord | null {
+  const r = db
+    .prepare(
+      `SELECT * FROM reservations WHERE ticket_id = ? ORDER BY id DESC LIMIT 1`,
+    )
+    .get(ticketId);
+  return r ? map(r) : null;
+}
+
 const clampQty = (v: number | undefined) =>
   Math.min(Math.max(Math.trunc(v ?? 0) || 0, 0), 100000);
 
