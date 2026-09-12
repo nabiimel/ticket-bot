@@ -1,0 +1,25 @@
+name: Cleanup GHCR
+
+# Every push to main publishes a new sha-tagged image on top of `latest`
+# (see ci.yml's publish job), so the registry grows by one version forever
+# unless something prunes it. Runs weekly, or on demand.
+on:
+  schedule:
+    - cron: "0 4 * * 0" # Sundays 04:00 UTC
+  workflow_dispatch:
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Delete old ticket-bot image versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: "ticket-bot"
+          package-type: "container"
+          # Keep the most recent 10 builds (covers "latest" plus enough
+          # sha-tagged history for a manual rollback) and prune the rest.
+          min-versions-to-keep: 10
+          ignore-versions: "^latest$"
