@@ -112,6 +112,14 @@ export async function guildHealth(guildId: string): Promise<HealthIssue[]> {
         href: at("/general"),
       });
     }
+    if (cfg.paidCategoryId && !channelIds.has(cfg.paidCategoryId)) {
+      issues.push({
+        level: "warn",
+        message:
+          "The paid category no longer exists — /ticket paid can't relocate tickets.",
+        href: at("/general"),
+      });
+    }
   }
 
   return issues;

@@ -32,6 +32,7 @@ describe("migrations", () => {
       "015_reservations_robux",
       "016_reservations_stock",
       "017_reservations_stock_message",
+      "018_ticket_paid",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });

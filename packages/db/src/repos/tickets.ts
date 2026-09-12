@@ -32,6 +32,7 @@ function map(r: any): TicketRecord {
     status: r.status as TicketStatus,
     priority: (r.priority ?? "normal") as TicketPriority,
     tags: parseTags(r.tags),
+    paid: !!r.paid,
     subject: r.subject,
     claimedBy: r.claimed_by,
     createdAt: r.created_at,
@@ -260,6 +261,10 @@ export function setPriority(
   priority: TicketPriority,
 ): void {
   db.prepare(`UPDATE tickets SET priority = ? WHERE id = ?`).run(priority, id);
+}
+
+export function setPaid(db: DB, id: number, paid: boolean): void {
+  db.prepare(`UPDATE tickets SET paid = ? WHERE id = ?`).run(paid ? 1 : 0, id);
 }
 
 /** Replace a ticket's tag list (deduped, trimmed, lowercased, capped at 10). */

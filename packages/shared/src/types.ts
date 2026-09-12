@@ -131,6 +131,8 @@ export interface GuildConfig {
   maxOpenPerUser: number;
   closeBehaviour: CloseBehaviour;
   archiveCategoryId: string | null;
+  /** Discord category a ticket is moved to when marked paid (/ticket paid). */
+  paidCategoryId: string | null;
   feedbackEnabled: boolean;
   feedbackPromptEmbed: EmbedConfig | null;
   welcomeEmbed: EmbedConfig | null;
@@ -244,6 +246,8 @@ export interface TicketRecord {
   priority: TicketPriority;
   /** Free-form staff labels. */
   tags: string[];
+  /** Marked via /ticket paid — relocates the channel to paidCategoryId. */
+  paid: boolean;
   subject: string | null;
   claimedBy: string | null;
   createdAt: number;

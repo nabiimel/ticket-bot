@@ -92,6 +92,7 @@ export function GeneralForm({
   );
   const [defaultStaffRoleId, setStaff] = useState(cfg.defaultStaffRoleId);
   const [archiveCategoryId, setArchive] = useState(cfg.archiveCategoryId);
+  const [paidCategoryId, setPaidCat] = useState(cfg.paidCategoryId);
   const [pingGuardSellerId, setSeller] = useState(cfg.pingGuardSellerId);
   const [rate, setRate] = useState({
     rerollUnit: cfg.reservationsRerollUnit,
@@ -246,6 +247,23 @@ export function GeneralForm({
             </p>
             <FieldError state={state} name="archiveCategoryId" />
           </div>
+        </div>
+
+        <div>
+          <label className="label">Paid category</label>
+          <Combobox
+            name="paidCategoryId"
+            options={categoryChannels}
+            value={paidCategoryId}
+            onChange={combo(setPaidCat)}
+            invalid={!!state?.fieldErrors?.paidCategoryId}
+          />
+          <p className="mt-1 text-xs text-faint">
+            <code className="text-discord-blurple">/ticket paid</code> moves the
+            ticket channel here; toggling it back off moves it back to its usual
+            category.
+          </p>
+          <FieldError state={state} name="paidCategoryId" />
         </div>
 
         <div className="flex flex-wrap gap-6">

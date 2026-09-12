@@ -212,6 +212,7 @@ export async function saveGeneral(
     "transcriptChannelId",
     "defaultStaffRoleId",
     "archiveCategoryId",
+    "paidCategoryId",
     "reservationsStockChannelId",
   ] as const) {
     const v = str(k);
@@ -232,6 +233,7 @@ export async function saveGeneral(
     maxOpenPerUser,
     closeBehaviour,
     archiveCategoryId,
+    paidCategoryId: str("paidCategoryId"),
     feedbackEnabled: form.get("feedbackEnabled") === "on",
     claimingEnabled: form.get("claimingEnabled") === "on",
     inactivityHours,
@@ -259,6 +261,7 @@ export async function saveGeneral(
     maxOpenPerUser: "max open per person",
     closeBehaviour: "close behaviour",
     archiveCategoryId: "archive category",
+    paidCategoryId: "paid category",
     feedbackEnabled: "rating prompt",
     claimingEnabled: "claiming",
     inactivityHours: "auto-close",
