@@ -365,6 +365,7 @@ export type JobType =
   | "post_preview"
   | "admin_close_ticket"
   | "admin_claim_ticket"
+  | "admin_set_paid"
   | "repost_application"
   | "decide_application"
   | "reservation_done"
@@ -407,6 +408,10 @@ export interface AdminCloseTicketPayload {
 export interface AdminClaimTicketPayload {
   ticketId: number;
   staffId: string;
+}
+export interface AdminSetPaidPayload {
+  ticketId: number;
+  paid: boolean;
 }
 export interface RepostApplicationPayload {
   applicationId: number;

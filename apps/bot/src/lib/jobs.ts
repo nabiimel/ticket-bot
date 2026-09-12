@@ -10,6 +10,7 @@ import { renderTemplate, robuxCost, t } from "@ticketbot/shared";
 import type {
   AdminClaimTicketPayload,
   AdminCloseTicketPayload,
+  AdminSetPaidPayload,
   DecideApplicationPayload,
   EditPanelPayload,
   JobRecord,
@@ -28,7 +29,11 @@ import { buildContext } from "./context.js";
 import { buildPanelComponents, buildTicketControls } from "./embeds.js";
 import { buildEmbedWithAssets, resolveUploadFiles } from "./embedAssets.js";
 import { buildTicketOverwrites, staffRoleIdsFor } from "./permissions.js";
-import { closeTicket, injectFormTokens } from "./ticketManager.js";
+import {
+  closeTicket,
+  injectFormTokens,
+  setTicketPaid,
+} from "./ticketManager.js";
 import { computeStaffStatus, staffStatusLine } from "./staffStatus.js";
 import { applyDecision, buildApplicationMessage } from "./applications.js";
 import { alertAdmins } from "./preflight.js";
@@ -330,6 +335,20 @@ async function handleAdminClaim(
       .edit({ components: [buildTicketControls(ticket.id, { claimed: true })] })
       .catch(() => null);
   }
+}
+
+async function handleAdminSetPaid(
+  client: Client,
+  job: JobRecord<AdminSetPaidPayload>,
+) {
+  const db = getDb();
+  const ticket = repos.tickets.getTicket(db, job.payload.ticketId);
+  if (!ticket || ticket.status === "closed") return;
+  const guild = client.guilds.cache.get(ticket.guildId);
+  if (!guild) return;
+  const cfg = repos.guildConfig.getGuildConfig(db, ticket.guildId);
+  const { warning } = await setTicketPaid(guild, ticket, job.payload.paid, cfg);
+  if (warning) logger.warn(`ticket ${ticket.id} paid toggle: ${warning}`);
 }
 
 async function handleRepostApplication(
@@ -640,6 +659,9 @@ async function processOne(client: Client, job: JobRecord): Promise<void> {
       break;
     case "admin_claim_ticket":
       await handleAdminClaim(client, job as JobRecord<AdminClaimTicketPayload>);
+      break;
+    case "admin_set_paid":
+      await handleAdminSetPaid(client, job as JobRecord<AdminSetPaidPayload>);
       break;
     case "repost_application":
       await handleRepostApplication(

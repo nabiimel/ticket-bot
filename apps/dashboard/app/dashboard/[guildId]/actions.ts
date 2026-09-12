@@ -672,6 +672,29 @@ export async function claimTicketAdmin(guildId: string, ticketId: number) {
   return { ok: true };
 }
 
+/** Toggle paid status; the bot performs the actual channel move (see jobs.ts). */
+export async function setTicketPaidAdmin(
+  guildId: string,
+  ticketId: number,
+  paid: boolean,
+) {
+  const { userId } = await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const tk = repos.tickets.getTicket(db(), ticketId);
+  if (!tk || tk.guildId !== guildId || tk.status === "closed") {
+    return { ok: false, error: "Ticket not found or already closed" };
+  }
+  await enqueueJob(guildId, "admin_set_paid", { ticketId, paid });
+  audit(
+    guildId,
+    userId,
+    "ticket.paid",
+    `Marked ticket #${tk.number} as ${paid ? "paid" : "not paid"} from the dashboard`,
+  );
+  rev(guildId);
+  return { ok: true };
+}
+
 export async function closeTicketAdmin(
   guildId: string,
   ticketId: number,
@@ -1241,6 +1264,14 @@ export async function updateReservation(
     ...(patch.paid !== undefined ? { paid: !!patch.paid } : {}),
   });
   if (patch.qty !== undefined) await refreshStockEmbed(guildId);
+  // A reroll reservation's ticket relocates to the paid category in step —
+  // only the bot can move a channel, so this goes through the job queue.
+  if (patch.paid !== undefined && r.ticketId != null) {
+    await enqueueJob(guildId, "admin_set_paid", {
+      ticketId: r.ticketId,
+      paid: !!patch.paid,
+    });
+  }
   rev(guildId);
   return { ok: true };
 }

@@ -3,7 +3,6 @@ import {
   MessageFlags,
   SlashCommandBuilder,
   type GuildTextBasedChannel,
-  type TextChannel,
 } from "discord.js";
 import { t, TICKET_PRIORITIES } from "@ticketbot/shared";
 import { repos } from "@ticketbot/db";
@@ -15,7 +14,7 @@ import {
 } from "../lib/configCache.js";
 import { isStaff } from "../lib/permissions.js";
 import { buildTicketControls } from "../lib/embeds.js";
-import { closeTicket } from "../lib/ticketManager.js";
+import { closeTicket, setTicketPaid } from "../lib/ticketManager.js";
 import { logger } from "../lib/logger.js";
 
 const data = new SlashCommandBuilder()
@@ -223,29 +222,14 @@ export const ticketCommand: SlashCommand = {
         return;
       }
       const nextPaid = !ticket.paid;
-      repos.tickets.setPaid(db, ticket.id, nextPaid);
-
-      // Moving parent alone (no permissionOverwrites) leaves the ticket's
-      // existing access untouched — just relocates which category it's under.
-      let moveWarning = "";
-      if (channel.type === ChannelType.GuildText) {
-        const targetParent = nextPaid
-          ? guildConfig.paidCategoryId
-          : (category?.discordParentId ?? null);
-        if (nextPaid && !guildConfig.paidCategoryId) {
-          moveWarning =
-            " (no paid category set in General settings — channel not moved)";
-        } else {
-          try {
-            await (channel as TextChannel).edit({ parent: targetParent });
-          } catch (err) {
-            logger.error("ticket paid: channel move failed", ticket.id, err);
-            moveWarning = " (couldn't move the channel — check my permissions)";
-          }
-        }
-      }
+      const { warning } = await setTicketPaid(
+        interaction.guild,
+        ticket,
+        nextPaid,
+        guildConfig,
+      );
       await interaction.reply({
-        content: `${nextPaid ? "💰 Marked as **paid**" : "Marked as **not paid**"}${moveWarning}.`,
+        content: `${nextPaid ? "💰 Marked as **paid**" : "Marked as **not paid**"}${warning ? ` (${warning})` : ""}.`,
       });
       return;
     }

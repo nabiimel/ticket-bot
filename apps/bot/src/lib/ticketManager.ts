@@ -416,3 +416,44 @@ export async function closeTicket(args: {
     }, 5000);
   }
 }
+
+/**
+ * Toggle a ticket's paid status and relocate its channel accordingly (to
+ * `paidCategoryId` when marking paid, back to the ticket's own category when
+ * unmarking). Shared by the /ticket paid command and the dashboard's
+ * admin_set_paid job — moving only the parent (no permissionOverwrites)
+ * leaves the channel's existing access untouched.
+ */
+export async function setTicketPaid(
+  guild: Guild,
+  ticket: TicketRecord,
+  paid: boolean,
+  guildConfig: GuildConfig,
+): Promise<{ moved: boolean; warning: string | null }> {
+  const db = getDb();
+  repos.tickets.setPaid(db, ticket.id, paid);
+
+  const ch =
+    guild.channels.cache.get(ticket.channelId) ??
+    (await guild.channels.fetch(ticket.channelId).catch(() => null));
+  if (!ch || ch.type !== ChannelType.GuildText) {
+    return { moved: false, warning: "the ticket channel no longer exists" };
+  }
+  if (paid && !guildConfig.paidCategoryId) {
+    return { moved: false, warning: "no paid category is configured" };
+  }
+  const category =
+    ticket.categoryId != null
+      ? repos.categories.getCategory(db, ticket.categoryId)
+      : null;
+  const targetParent = paid
+    ? guildConfig.paidCategoryId
+    : (category?.discordParentId ?? null);
+  try {
+    await (ch as TextChannel).edit({ parent: targetParent });
+    return { moved: true, warning: null };
+  } catch (err) {
+    logger.error("setTicketPaid: channel move failed", ticket.id, err);
+    return { moved: false, warning: "couldn't move the channel" };
+  }
+}

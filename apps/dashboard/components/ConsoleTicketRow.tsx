@@ -6,6 +6,7 @@ import { fmtDuration } from "@/lib/format";
 import {
   claimTicketAdmin,
   closeTicketAdmin,
+  setTicketPaidAdmin,
   setTicketPriority,
 } from "@/app/dashboard/[guildId]/actions";
 import { useToast } from "./Toast";
@@ -38,6 +39,7 @@ export function ConsoleTicketRow({
   const [now, setNow] = useState(serverNow);
   const [claimed, setClaimed] = useState(!!t.claimedBy);
   const [priority, setPriority] = useState(t.priority);
+  const [paid, setPaid] = useState(t.paid);
   const [gone, setGone] = useState(false);
 
   useEffect(() => {
@@ -71,6 +73,20 @@ export function ConsoleTicketRow({
       else {
         setPriority(prev);
         toast.error(res.error ?? "Couldn't set priority");
+      }
+    });
+  };
+
+  const togglePaid = () => {
+    const next = !paid;
+    setPaid(next);
+    start(async () => {
+      const res = await setTicketPaidAdmin(guildId, t.id, next);
+      if (res.ok) {
+        toast.success(`#${t.number} marked ${next ? "paid" : "not paid"}`);
+      } else {
+        setPaid(!next);
+        toast.error(res.error ?? "Couldn't update paid status");
       }
     });
   };
@@ -150,6 +166,18 @@ export function ConsoleTicketRow({
       </td>
       <td className="py-2">
         <div className="flex items-center justify-end gap-2">
+          <label
+            className="flex items-center gap-1 text-xs text-dim"
+            title="Relocates the channel to the configured paid category"
+          >
+            <input
+              type="checkbox"
+              checked={paid}
+              disabled={pending}
+              onChange={togglePaid}
+            />
+            Paid
+          </label>
           <a
             className="text-xs text-accent hover:underline"
             href={`https://discord.com/channels/${guildId}/${t.channelId}`}
