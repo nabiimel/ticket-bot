@@ -59,8 +59,8 @@ export function SnippetList({
           key={s.id}
           className="flex items-center gap-3 p-3.5 transition-colors hover:bg-surface-2"
         >
-          <div className="grow">
-            <div className="font-medium">
+          <div className="min-w-0 grow">
+            <div className="truncate font-medium">
               {s.name}
               {s.attachments.length > 0 && (
                 <span className="ml-2 text-xs text-faint">
@@ -73,20 +73,22 @@ export function SnippetList({
               {s.content ? s.content.replace(/\s+/g, " ") : "No text"}
             </div>
           </div>
-          <Link
-            className="btn-secondary"
-            href={`/dashboard/${guildId}/snippets/${s.id}`}
-          >
-            Edit
-          </Link>
-          <button
-            type="button"
-            className="text-xs text-discord-red hover:underline"
-            disabled={pending}
-            onClick={() => void remove(s.id, s.name)}
-          >
-            Delete
-          </button>
+          <div className="flex shrink-0 items-center gap-3">
+            <Link
+              className="btn-secondary"
+              href={`/dashboard/${guildId}/snippets/${s.id}`}
+            >
+              Edit
+            </Link>
+            <button
+              type="button"
+              className="text-xs text-discord-red hover:underline"
+              disabled={pending}
+              onClick={() => void remove(s.id, s.name)}
+            >
+              Delete
+            </button>
+          </div>
         </li>
       ))}
     </ul>
