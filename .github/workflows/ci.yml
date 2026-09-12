@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -94,6 +96,26 @@ jobs:
             docker compose --profile tools run --rm migrate
             docker compose up -d
             docker compose ps
+            # docker compose up -d succeeding only means the containers
+            # started, not that they came up working — without this, a
+            # container that starts and then fails its healthcheck (bad
+            # config, crash loop, out-of-disk, etc.) looks identical to a
+            # successful deploy from this script's point of view. Wait for
+            # both services to actually report healthy, or fail loudly.
+            for i in $(seq 1 30); do
+              bot_status=$(docker inspect -f '{{.State.Health.Status}}' ticket-bot-bot-1 2>/dev/null || echo "missing")
+              dash_status=$(docker inspect -f '{{.State.Health.Status}}' ticket-bot-dashboard-1 2>/dev/null || echo "missing")
+              if [ "$bot_status" = "healthy" ] && [ "$dash_status" = "healthy" ]; then
+                echo "Both services healthy."
+                break
+              fi
+              if [ "$i" = "30" ]; then
+                echo "Services did not become healthy in time (bot: $bot_status, dashboard: $dash_status)" >&2
+                docker compose logs --tail 50
+                exit 1
+              fi
+              sleep 5
+            done
             # Old image layers pile up on every deploy otherwise (each push
             # leaves the previous version's layers behind) and can fill a
             # small droplet's disk over enough deploys. Safe to run
