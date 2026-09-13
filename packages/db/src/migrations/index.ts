@@ -19,6 +19,7 @@ import { migration as m018 } from "./018_ticket_paid.js";
 import { migration as m019 } from "./019_dashboard_presence.js";
 import { migration as m020 } from "./020_ticket_controls_message.js";
 import { migration as m021 } from "./021_category_ask_reservation.js";
+import { migration as m022 } from "./022_category_reservation_prompt.js";
 
 export interface Migration {
   name: string;
@@ -48,4 +49,5 @@ export const MIGRATIONS: Migration[] = [
   m019,
   m020,
   m021,
+  m022,
 ];

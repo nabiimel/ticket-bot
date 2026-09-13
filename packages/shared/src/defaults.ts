@@ -1,4 +1,8 @@
-import type { ButtonConfig, EmbedConfig } from "./types.js";
+import type {
+  ButtonConfig,
+  EmbedConfig,
+  ReservationPromptConfig,
+} from "./types.js";
 
 export const BLURPLE = "#5865F2";
 export const GREEN = "#57F287";
@@ -45,6 +49,14 @@ export const DEFAULT_BUTTON_CONFIG: ButtonConfig = {
 };
 
 export const DEFAULT_NAMING_SCHEME = "ticket-{number}";
+
+/** Default text for the pre-form "is this a reservation?" prompt. */
+export const DEFAULT_RESERVATION_PROMPT: Required<ReservationPromptConfig> = {
+  title: "Is this a reservation?",
+  body: "Let us know before you fill out the form.",
+  yesLabel: "📌 Yes, it's a reservation",
+  noLabel: "No, just a question",
+};
 
 /** A handful of common emoji for the category quick-pick. */
 export const QUICK_EMOJI = [

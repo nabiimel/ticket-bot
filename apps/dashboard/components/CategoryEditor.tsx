@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  DEFAULT_RESERVATION_PROMPT,
   DEFAULT_WELCOME_EMBED,
   QUICK_EMOJI,
   isValidEmoji,
@@ -96,6 +97,7 @@ export function CategoryEditor({
         disabled: c.disabled,
         disabledReason: c.disabled ? c.disabledReason : null,
         askReservation: c.askReservation,
+        reservationPrompt: c.askReservation ? c.reservationPrompt : null,
         welcomeEmbed: useWelcome
           ? (c.welcomeEmbed ?? DEFAULT_WELCOME_EMBED)
           : null,
@@ -291,20 +293,95 @@ export function CategoryEditor({
         </p>
       </div>
 
-      <div className="card">
-        <label className="flex items-center gap-2 text-sm font-semibold">
-          <input
-            type="checkbox"
-            checked={c.askReservation}
-            onChange={(e) => patch({ askReservation: e.target.checked })}
-          />
-          Ask “Is this a reservation?” before the form
-        </label>
-        <p className="mt-1 text-xs text-faint">
-          Members pick Yes/No first, then fill out the same form either way —
-          the answer is added to the ticket’s form responses so staff can spot
-          reservation-intent tickets at a glance.
-        </p>
+      <div className="card space-y-4">
+        <div>
+          <label className="flex items-center gap-2 text-sm font-semibold">
+            <input
+              type="checkbox"
+              checked={c.askReservation}
+              onChange={(e) => patch({ askReservation: e.target.checked })}
+            />
+            Ask “Is this a reservation?” before the form
+          </label>
+          <p className="mt-1 text-xs text-faint">
+            Members pick Yes/No first, then fill out the same form either way —
+            the answer is added to the ticket’s form responses so staff can spot
+            reservation-intent tickets at a glance.
+          </p>
+        </div>
+        {c.askReservation && (
+          <div className="grid gap-3 border-t border-line pt-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="label">Prompt title</label>
+              <input
+                className="input"
+                placeholder={DEFAULT_RESERVATION_PROMPT.title}
+                value={c.reservationPrompt?.title ?? ""}
+                onChange={(e) =>
+                  patch({
+                    reservationPrompt: {
+                      ...c.reservationPrompt,
+                      title: e.target.value || undefined,
+                    },
+                  })
+                }
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">Prompt body</label>
+              <input
+                className="input"
+                placeholder={DEFAULT_RESERVATION_PROMPT.body}
+                value={c.reservationPrompt?.body ?? ""}
+                onChange={(e) =>
+                  patch({
+                    reservationPrompt: {
+                      ...c.reservationPrompt,
+                      body: e.target.value || undefined,
+                    },
+                  })
+                }
+              />
+            </div>
+            <div>
+              <label className="label">“Yes” button label</label>
+              <input
+                className="input"
+                placeholder={DEFAULT_RESERVATION_PROMPT.yesLabel}
+                maxLength={80}
+                value={c.reservationPrompt?.yesLabel ?? ""}
+                onChange={(e) =>
+                  patch({
+                    reservationPrompt: {
+                      ...c.reservationPrompt,
+                      yesLabel: e.target.value || undefined,
+                    },
+                  })
+                }
+              />
+            </div>
+            <div>
+              <label className="label">“No” button label</label>
+              <input
+                className="input"
+                placeholder={DEFAULT_RESERVATION_PROMPT.noLabel}
+                maxLength={80}
+                value={c.reservationPrompt?.noLabel ?? ""}
+                onChange={(e) =>
+                  patch({
+                    reservationPrompt: {
+                      ...c.reservationPrompt,
+                      noLabel: e.target.value || undefined,
+                    },
+                  })
+                }
+              />
+            </div>
+            <p className="text-xs text-faint sm:col-span-2">
+              Leave any field blank to use the default shown as its placeholder.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Questions members answer to open a ticket */}

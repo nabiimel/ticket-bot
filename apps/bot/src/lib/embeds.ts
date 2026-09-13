@@ -178,16 +178,17 @@ export function buildCloseConfirm(
 export function buildReservationChoice(
   categoryId: number,
   panelId: number | null,
+  labels: { yesLabel: string; noLabel: string },
 ): ActionRowBuilder<ButtonBuilder> {
   const suffix = panelId != null ? `:${panelId}` : "";
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`reservationChoice:${categoryId}:yes${suffix}`)
-      .setLabel("📌 Yes, it's a reservation")
+      .setLabel(labels.yesLabel.slice(0, 80))
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`reservationChoice:${categoryId}:no${suffix}`)
-      .setLabel("No, just a question")
+      .setLabel(labels.noLabel.slice(0, 80))
       .setStyle(ButtonStyle.Secondary),
   );
 }

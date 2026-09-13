@@ -214,6 +214,15 @@ export interface CategoryConfig {
   sortOrder: number;
   /** Ask "Is this a reservation?" before the intake form (same form either way). */
   askReservation: boolean;
+  /** Overrides for the reservation prompt's text; unset fields fall back to defaults. */
+  reservationPrompt: ReservationPromptConfig | null;
+}
+
+export interface ReservationPromptConfig {
+  title?: string;
+  body?: string;
+  yesLabel?: string;
+  noLabel?: string;
 }
 
 export interface PanelConfig {

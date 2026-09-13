@@ -8,7 +8,12 @@ import {
   type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
 } from "discord.js";
-import { renderTemplate, t, type CategoryConfig } from "@ticketbot/shared";
+import {
+  DEFAULT_RESERVATION_PROMPT,
+  renderTemplate,
+  t,
+  type CategoryConfig,
+} from "@ticketbot/shared";
 import { repos } from "@ticketbot/db";
 import { getDb } from "../lib/db.js";
 import {
@@ -108,6 +113,29 @@ function buildFormModal(
   return modal;
 }
 
+/** Merges a category's prompt overrides onto the defaults and renders tokens. */
+function resolveReservationPrompt(
+  category: CategoryConfig,
+  interaction:
+    ButtonInteraction<"cached"> | StringSelectMenuInteraction<"cached">,
+) {
+  const merged = {
+    ...DEFAULT_RESERVATION_PROMPT,
+    ...(category.reservationPrompt ?? {}),
+  };
+  const fieldCtx = buildContext({
+    guild: interaction.guild,
+    opener: interaction.member,
+    category,
+  });
+  return {
+    title: renderTemplate(merged.title, fieldCtx) || merged.title,
+    body: renderTemplate(merged.body, fieldCtx) || merged.body,
+    yesLabel: merged.yesLabel,
+    noLabel: merged.noLabel,
+  };
+}
+
 /** Entry point from the `open:` button and the `panelSelect:` menu. */
 export async function startOpen(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
@@ -146,12 +174,10 @@ export async function startOpen(
   }
 
   if (category.askReservation) {
+    const prompt = resolveReservationPrompt(category, interaction);
     await interaction.reply({
-      content: `**${t("ticket.open.reservationPrompt.title", lang)}**\n${t(
-        "ticket.open.reservationPrompt.body",
-        lang,
-      )}`,
-      components: [buildReservationChoice(categoryId, panelId)],
+      content: `**${prompt.title}**\n${prompt.body}`,
+      components: [buildReservationChoice(categoryId, panelId, prompt)],
       flags: MessageFlags.Ephemeral,
     });
     return;

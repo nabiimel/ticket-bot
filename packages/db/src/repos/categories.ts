@@ -1,4 +1,9 @@
-import type { CategoryConfig, EmbedConfig, FormField } from "@ticketbot/shared";
+import type {
+  CategoryConfig,
+  EmbedConfig,
+  FormField,
+  ReservationPromptConfig,
+} from "@ticketbot/shared";
 import type { DB } from "../index.js";
 
 function jsonArray<T>(json: string | null, fallback: T[]): T[] {
@@ -32,6 +37,9 @@ function map(r: any): CategoryConfig {
     disabledReason: r.disabled_reason ?? null,
     sortOrder: r.sort_order,
     askReservation: !!r.ask_reservation,
+    reservationPrompt: r.reservation_prompt_json
+      ? (JSON.parse(r.reservation_prompt_json) as ReservationPromptConfig)
+      : null,
   };
 }
 
@@ -76,6 +84,7 @@ export interface CategoryInput {
   disabledReason?: string | null;
   sortOrder?: number;
   askReservation?: boolean;
+  reservationPrompt?: ReservationPromptConfig | null;
 }
 
 export function createCategory(
@@ -89,10 +98,10 @@ export function createCategory(
         (guild_id, key, label, emoji, description, staff_role_ids_json,
          ping_role_ids_json, discord_parent_id, welcome_embed_json, form_json,
          per_user_limit, naming_scheme, disabled, disabled_reason, sort_order,
-         ask_reservation)
+         ask_reservation, reservation_prompt_json)
        VALUES (@guild_id, @key, @label, @emoji, @description, @staff, @ping,
                @parent, @welcome, @form, @limit, @naming, @disabled,
-               @disabledReason, @sort, @askReservation)`,
+               @disabledReason, @sort, @askReservation, @reservationPrompt)`,
     )
     .run({
       guild_id: guildId,
@@ -111,6 +120,9 @@ export function createCategory(
       disabledReason: input.disabledReason ?? null,
       sort: input.sortOrder ?? 0,
       askReservation: input.askReservation ? 1 : 0,
+      reservationPrompt: input.reservationPrompt
+        ? JSON.stringify(input.reservationPrompt)
+        : null,
     });
   return getCategory(db, Number(info.lastInsertRowid))!;
 }
@@ -136,6 +148,7 @@ export function updateCategory(
     disabledReason: "disabled_reason",
     sortOrder: "sort_order",
     askReservation: "ask_reservation",
+    reservationPrompt: "reservation_prompt_json",
   };
   const sets: string[] = [];
   const values: unknown[] = [];
@@ -145,7 +158,7 @@ export function updateCategory(
     let value: unknown = raw;
     if (key === "staffRoleIds" || key === "pingRoleIds" || key === "form") {
       value = JSON.stringify(raw ?? []);
-    } else if (key === "welcomeEmbed") {
+    } else if (key === "welcomeEmbed" || key === "reservationPrompt") {
       value = raw == null ? null : JSON.stringify(raw);
     } else if (key === "disabled" || key === "askReservation") {
       value = raw ? 1 : 0;

@@ -14,6 +14,7 @@ import {
   type EmbedConfig,
   type FormField,
   type PanelStyle,
+  type ReservationPromptConfig,
   type RobuxRate,
   type TicketPriority,
 } from "@ticketbot/shared";
@@ -354,6 +355,7 @@ export interface CategoryPayload {
   disabledReason?: string | null;
   sortOrder?: number;
   askReservation?: boolean;
+  reservationPrompt?: ReservationPromptConfig | null;
 }
 
 const CATEGORY_KEY = /^[a-z0-9][a-z0-9_-]{0,31}$/;
@@ -447,6 +449,7 @@ export async function saveCategory(
     disabled: "paused",
     disabledReason: "pause reason",
     askReservation: "ask if reservation",
+    reservationPrompt: "reservation prompt text",
   };
   const changed = Object.keys(payload)
     .filter(

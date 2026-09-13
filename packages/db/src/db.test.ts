@@ -36,6 +36,7 @@ describe("migrations", () => {
       "019_dashboard_presence",
       "020_ticket_controls_message",
       "021_category_ask_reservation",
+      "022_category_reservation_prompt",
     ]);
     expect(runMigrations(db)).toEqual([]);
   });
