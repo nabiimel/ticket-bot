@@ -8,7 +8,7 @@ import { repos } from "@ticketbot/db";
 import type { ModalHandler } from "../registry.js";
 import { getDb } from "../lib/db.js";
 import { getCategoriesCached } from "../lib/configCache.js";
-import { completeOpen } from "./openFlow.js";
+import { completeOpen, handlePersonFormSubmit } from "./openFlow.js";
 import { runClose } from "./buttons.js";
 import { applicationModalHandlers } from "./applications.js";
 import type { FormAnswer } from "../lib/ticketManager.js";
@@ -58,6 +58,16 @@ const formModal: ModalHandler = {
   },
 };
 
+const personFormModal: ModalHandler = {
+  prefix: "personForm",
+  async run(interaction, args) {
+    const categoryId = Number(args[0]);
+    const index = Number(args[1]);
+    if (Number.isNaN(categoryId) || Number.isNaN(index)) return;
+    await handlePersonFormSubmit(interaction, categoryId, index);
+  },
+};
+
 const closeReasonSubmit: ModalHandler = {
   prefix: "closeReasonSubmit",
   async run(interaction) {
@@ -94,6 +104,7 @@ const rateComment: ModalHandler = {
 
 export const modalHandlers: ModalHandler[] = [
   formModal,
+  personFormModal,
   closeReasonSubmit,
   rateComment,
   ...applicationModalHandlers,

@@ -12,6 +12,7 @@ import {
   DEFAULT_RESERVATION_PROMPT,
   renderTemplate,
   t,
+  validateFormAnswer,
   type CategoryConfig,
 } from "@ticketbot/shared";
 import { repos } from "@ticketbot/db";
@@ -21,7 +22,12 @@ import {
   getGuildConfigCached,
 } from "../lib/configCache.js";
 import { buildContext } from "../lib/context.js";
-import { buildReservationChoice } from "../lib/embeds.js";
+import {
+  buildPersonCountChoice,
+  buildPersonCountSelect,
+  buildPersonFormNext,
+  buildReservationChoice,
+} from "../lib/embeds.js";
 import { createTicket, type FormAnswer } from "../lib/ticketManager.js";
 import { hit } from "../lib/cooldown.js";
 import { alertAdmins, preflightTicketCreate } from "../lib/preflight.js";
@@ -53,6 +59,19 @@ const PENDING_TTL_MS = 5 * 60_000;
  */
 const pendingReservationChoice = new Map<string, boolean>();
 
+/**
+ * A multi-person order in progress, keyed `guildId:userId`: which category,
+ * how many people total, which one we're currently collecting, and the
+ * answers gathered so far. Discord can't chain a modal directly off a modal
+ * submission, so each person's modal is followed by a "Continue" button
+ * (buildPersonFormNext) whose click shows the next one — this map is what
+ * lets that multi-step round trip remember where it left off.
+ */
+const pendingMultiPerson = new Map<
+  string,
+  { categoryId: number; total: number; index: number; answers: FormAnswer[] }
+>();
+
 type AnyInteraction =
   ButtonInteraction | StringSelectMenuInteraction | ModalSubmitInteraction;
 
@@ -71,21 +90,19 @@ function findCategory(
   return getCategoriesCached(guildId).find((c) => c.id === categoryId) ?? null;
 }
 
-/** Builds the intake-form modal for a category (up to 5 fields, Discord's cap). */
-function buildFormModal(
+/** Populates a modal with a category's fields (up to 5, Discord's cap). */
+function addFormFields(
+  modal: ModalBuilder,
   category: CategoryConfig,
   interaction:
     ButtonInteraction<"cached"> | StringSelectMenuInteraction<"cached">,
-): ModalBuilder {
+): void {
   // Tokens resolvable before the ticket exists: {user*}, {category*}, {guild*}.
   const fieldCtx = buildContext({
     guild: interaction.guild,
     opener: interaction.member,
     category,
   });
-  const modal = new ModalBuilder()
-    .setCustomId(`form:${category.id}`)
-    .setTitle(`Open ${category.label}`.slice(0, 45));
   for (const field of category.form.slice(0, 5)) {
     const label =
       renderTemplate(field.label, fieldCtx) || field.label || "Answer";
@@ -110,6 +127,33 @@ function buildFormModal(
       new ActionRowBuilder<TextInputBuilder>().addComponents(input),
     );
   }
+}
+
+/** Builds the intake-form modal for a category. */
+function buildFormModal(
+  category: CategoryConfig,
+  interaction:
+    ButtonInteraction<"cached"> | StringSelectMenuInteraction<"cached">,
+): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId(`form:${category.id}`)
+    .setTitle(`Open ${category.label}`.slice(0, 45));
+  addFormFields(modal, category, interaction);
+  return modal;
+}
+
+/** Builds one person's modal within a multi-person order — same fields, own title. */
+function buildPersonFormModal(
+  category: CategoryConfig,
+  interaction:
+    ButtonInteraction<"cached"> | StringSelectMenuInteraction<"cached">,
+  index: number,
+  total: number,
+): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId(`personForm:${category.id}:${index}`)
+    .setTitle(`Person ${index} of ${total}`.slice(0, 45));
+  addFormFields(modal, category, interaction);
   return modal;
 }
 
@@ -218,6 +262,15 @@ export async function handleReservationChoice(
   const lockKey = `${guildId}:${interaction.user.id}`;
   pendingReservationChoice.set(lockKey, isReservation);
 
+  // A multi-person order only makes sense for an actual reservation.
+  if (isReservation) {
+    await interaction.update({
+      content: "Is this for one person, or multiple people?",
+      components: [buildPersonCountChoice(categoryId)],
+    });
+    return;
+  }
+
   if (category.form.length > 0) {
     await interaction.showModal(buildFormModal(category, interaction));
     return;
@@ -225,6 +278,176 @@ export async function handleReservationChoice(
 
   await interaction.deferUpdate();
   await completeOpen(interaction, categoryId, []);
+}
+
+/** Entry point from the personCount:<categoryId>:<one|multi> buttons. */
+export async function handlePersonCountChoice(
+  interaction: ButtonInteraction,
+  categoryId: number,
+  choice: "one" | "multi",
+): Promise<void> {
+  if (!interaction.inCachedGuild()) return;
+  const guildId = interaction.guildId!;
+  const lang = getGuildConfigCached(guildId).language;
+  const category = findCategory(guildId, categoryId);
+  if (!category) {
+    await ephemeral(interaction, t("ticket.open.noCategory", lang));
+    return;
+  }
+
+  const guardMsg = openGuard(interaction.user.id, guildId, category, lang);
+  if (guardMsg) {
+    await interaction.update({ content: guardMsg, components: [] });
+    return;
+  }
+
+  if (choice === "multi") {
+    await interaction.update({
+      content: "How many people is this order for?",
+      components: [buildPersonCountSelect(categoryId)],
+    });
+    return;
+  }
+
+  if (category.form.length > 0) {
+    await interaction.showModal(buildFormModal(category, interaction));
+    return;
+  }
+
+  await interaction.deferUpdate();
+  await completeOpen(interaction, categoryId, []);
+}
+
+/** Entry point from the personCountSelect:<categoryId> "how many people?" menu. */
+export async function handlePersonCountSelect(
+  interaction: StringSelectMenuInteraction,
+  categoryId: number,
+): Promise<void> {
+  if (!interaction.inCachedGuild()) return;
+  const guildId = interaction.guildId!;
+  const lang = getGuildConfigCached(guildId).language;
+  const category = findCategory(guildId, categoryId);
+  if (!category) {
+    await ephemeral(interaction, t("ticket.open.noCategory", lang));
+    return;
+  }
+
+  const guardMsg = openGuard(interaction.user.id, guildId, category, lang);
+  if (guardMsg) {
+    await interaction.update({ content: guardMsg, components: [] });
+    return;
+  }
+
+  const total = Number(interaction.values[0]);
+  if (!Number.isInteger(total) || total < 2) return;
+
+  if (category.form.length === 0) {
+    // Nothing per-person to collect — nothing more to do here.
+    await interaction.deferUpdate();
+    await completeOpen(interaction, categoryId, []);
+    return;
+  }
+
+  const key = `${guildId}:${interaction.user.id}`;
+  pendingMultiPerson.set(key, { categoryId, total, index: 1, answers: [] });
+  await interaction.showModal(
+    buildPersonFormModal(category, interaction, 1, total),
+  );
+}
+
+/** Entry point from the personFormNext:<categoryId>:<index> "Continue" button. */
+export async function handlePersonFormNext(
+  interaction: ButtonInteraction,
+  categoryId: number,
+  index: number,
+): Promise<void> {
+  if (!interaction.inCachedGuild()) return;
+  const guildId = interaction.guildId!;
+  const category = findCategory(guildId, categoryId);
+  const key = `${guildId}:${interaction.user.id}`;
+  const pending = pendingMultiPerson.get(key);
+  if (
+    !category ||
+    !pending ||
+    pending.categoryId !== categoryId ||
+    pending.index !== index
+  ) {
+    await interaction.update({
+      content: "That order timed out — please start over.",
+      components: [],
+    });
+    return;
+  }
+  await interaction.showModal(
+    buildPersonFormModal(category, interaction, index, pending.total),
+  );
+}
+
+/** Entry point from the personForm:<categoryId>:<index> modal submit. */
+export async function handlePersonFormSubmit(
+  interaction: ModalSubmitInteraction,
+  categoryId: number,
+  index: number,
+): Promise<void> {
+  if (!interaction.inCachedGuild()) return;
+  const guildId = interaction.guildId!;
+  const category = findCategory(guildId, categoryId);
+  const key = `${guildId}:${interaction.user.id}`;
+  const pending = pendingMultiPerson.get(key);
+  if (
+    !category ||
+    !pending ||
+    pending.categoryId !== categoryId ||
+    pending.index !== index
+  ) {
+    await ephemeral(
+      interaction,
+      "That order timed out or was already submitted — please start over.",
+    );
+    return;
+  }
+
+  const errors: string[] = [];
+  const personAnswers: FormAnswer[] = [];
+  for (const field of category.form.slice(0, 5)) {
+    const value = interaction.fields
+      .getTextInputValue(`field:${field.key}`)
+      .trim();
+    const error = validateFormAnswer(field, value);
+    if (error) errors.push(error);
+    personAnswers.push({
+      key: `p${index}_${field.key}`,
+      label: `${field.label} (Person ${index})`,
+      value,
+    });
+  }
+
+  if (errors.length > 0) {
+    await interaction.reply({
+      content: `Please fix the following for Person ${index} and try again:\n${errors
+        .map((e) => `• ${e}`)
+        .join("\n")}`,
+      components: [buildPersonFormNext(categoryId, index, { retry: true })],
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  pending.answers.push(...personAnswers);
+
+  if (index < pending.total) {
+    pending.index = index + 1;
+    await interaction.reply({
+      content: `Saved Person ${index}. ${pending.total - index} more to go.`,
+      components: [buildPersonFormNext(categoryId, index + 1)],
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  pendingMultiPerson.delete(key);
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await completeOpen(interaction, categoryId, pending.answers);
 }
 
 /** Shared guard checks (blacklist + limits). Returns an error string or null. */

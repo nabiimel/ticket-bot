@@ -193,6 +193,63 @@ export function buildReservationChoice(
   );
 }
 
+/** One person, or a multi-person order? Shown only after "yes, reservation". */
+export function buildPersonCountChoice(
+  categoryId: number,
+): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`personCount:${categoryId}:one`)
+      .setLabel("Just me")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(`personCount:${categoryId}:multi`)
+      .setLabel("Multiple people")
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+export const MAX_MULTI_PERSON = 10;
+
+/** "How many people?" dropdown (2..MAX_MULTI_PERSON). */
+export function buildPersonCountSelect(
+  categoryId: number,
+): ActionRowBuilder<StringSelectMenuBuilder> {
+  const select = new StringSelectMenuBuilder()
+    .setCustomId(`personCountSelect:${categoryId}`)
+    .setPlaceholder("How many people?");
+  for (let n = 2; n <= MAX_MULTI_PERSON; n++) {
+    select.addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel(`${n} people`)
+        .setValue(`${n}`),
+    );
+  }
+  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+}
+
+/**
+ * Button shown between each person's modal in a multi-person order — either
+ * to continue to the next person, or (opts.retry) to redo one that failed
+ * validation, since a modal submit can't reopen a modal on its own.
+ */
+export function buildPersonFormNext(
+  categoryId: number,
+  index: number,
+  opts: { retry?: boolean } = {},
+): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`personFormNext:${categoryId}:${index}`)
+      .setLabel(
+        opts.retry
+          ? `Try again — Person ${index}`
+          : `Continue — Person ${index}`,
+      )
+      .setStyle(opts.retry ? ButtonStyle.Danger : ButtonStyle.Primary),
+  );
+}
+
 /** 1–5 star rating buttons. */
 export function buildRatingRow(
   ticketId: number,
