@@ -1,5 +1,5 @@
 import type { SelectHandler } from "../registry.js";
-import { handlePersonCountSelect, startOpen } from "./openFlow.js";
+import { startOpen } from "./openFlow.js";
 
 const panelSelect: SelectHandler = {
   prefix: "panelSelect",
@@ -17,16 +17,4 @@ const panelSelect: SelectHandler = {
   },
 };
 
-const personCountSelectHandler: SelectHandler = {
-  prefix: "personCountSelect",
-  async run(interaction, args) {
-    const categoryId = Number(args[0]);
-    if (Number.isNaN(categoryId)) return;
-    await handlePersonCountSelect(interaction, categoryId);
-  },
-};
-
-export const selectHandlers: SelectHandler[] = [
-  panelSelect,
-  personCountSelectHandler,
-];
+export const selectHandlers: SelectHandler[] = [panelSelect];

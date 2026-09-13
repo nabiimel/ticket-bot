@@ -3,8 +3,11 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  ModalBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from "discord.js";
 import {
   hexToInt,
@@ -193,7 +196,7 @@ export function buildReservationChoice(
   );
 }
 
-/** One person, or a multi-person order? Shown only after "yes, reservation". */
+/** One person, or a multi-person order? Shown after the reservation question. */
 export function buildPersonCountChoice(
   categoryId: number,
 ): ActionRowBuilder<ButtonBuilder> {
@@ -209,23 +212,24 @@ export function buildPersonCountChoice(
   );
 }
 
-export const MAX_MULTI_PERSON = 10;
+export const MAX_MULTI_PERSON = 25;
 
-/** "How many people?" dropdown (2..MAX_MULTI_PERSON). */
-export function buildPersonCountSelect(
-  categoryId: number,
-): ActionRowBuilder<StringSelectMenuBuilder> {
-  const select = new StringSelectMenuBuilder()
-    .setCustomId(`personCountSelect:${categoryId}`)
-    .setPlaceholder("How many people?");
-  for (let n = 2; n <= MAX_MULTI_PERSON; n++) {
-    select.addOptions(
-      new StringSelectMenuOptionBuilder()
-        .setLabel(`${n} people`)
-        .setValue(`${n}`),
+/** "How many people?" modal — a free-text number instead of a fixed dropdown. */
+export function buildPersonCountModal(categoryId: number): ModalBuilder {
+  return new ModalBuilder()
+    .setCustomId(`personCountForm:${categoryId}`)
+    .setTitle("How many people?")
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId("count")
+          .setLabel("How many people is this order for?")
+          .setPlaceholder(`A whole number, 2-${MAX_MULTI_PERSON}`)
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(3),
+      ),
     );
-  }
-  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
 }
 
 /**

@@ -24,9 +24,10 @@ import {
 import { buildContext } from "../lib/context.js";
 import {
   buildPersonCountChoice,
-  buildPersonCountSelect,
+  buildPersonCountModal,
   buildPersonFormNext,
   buildReservationChoice,
+  MAX_MULTI_PERSON,
 } from "../lib/embeds.js";
 import { createTicket, type FormAnswer } from "../lib/ticketManager.js";
 import { hit } from "../lib/cooldown.js";
@@ -262,22 +263,11 @@ export async function handleReservationChoice(
   const lockKey = `${guildId}:${interaction.user.id}`;
   pendingReservationChoice.set(lockKey, isReservation);
 
-  // A multi-person order only makes sense for an actual reservation.
-  if (isReservation) {
-    await interaction.update({
-      content: "Is this for one person, or multiple people?",
-      components: [buildPersonCountChoice(categoryId)],
-    });
-    return;
-  }
-
-  if (category.form.length > 0) {
-    await interaction.showModal(buildFormModal(category, interaction));
-    return;
-  }
-
-  await interaction.deferUpdate();
-  await completeOpen(interaction, categoryId, []);
+  // Asked either way — a multi-person order isn't only ever a reservation.
+  await interaction.update({
+    content: "Is this for one person, or multiple people?",
+    components: [buildPersonCountChoice(categoryId)],
+  });
 }
 
 /** Entry point from the personCount:<categoryId>:<one|multi> buttons. */
@@ -302,10 +292,7 @@ export async function handlePersonCountChoice(
   }
 
   if (choice === "multi") {
-    await interaction.update({
-      content: "How many people is this order for?",
-      components: [buildPersonCountSelect(categoryId)],
-    });
+    await interaction.showModal(buildPersonCountModal(categoryId));
     return;
   }
 
@@ -318,41 +305,44 @@ export async function handlePersonCountChoice(
   await completeOpen(interaction, categoryId, []);
 }
 
-/** Entry point from the personCountSelect:<categoryId> "how many people?" menu. */
-export async function handlePersonCountSelect(
-  interaction: StringSelectMenuInteraction,
+/** Entry point from the personCountForm:<categoryId> "how many people?" modal. */
+export async function handlePersonCountModalSubmit(
+  interaction: ModalSubmitInteraction,
   categoryId: number,
 ): Promise<void> {
   if (!interaction.inCachedGuild()) return;
   const guildId = interaction.guildId!;
-  const lang = getGuildConfigCached(guildId).language;
   const category = findCategory(guildId, categoryId);
   if (!category) {
-    await ephemeral(interaction, t("ticket.open.noCategory", lang));
+    await ephemeral(interaction, "That ticket category no longer exists.");
     return;
   }
 
-  const guardMsg = openGuard(interaction.user.id, guildId, category, lang);
-  if (guardMsg) {
-    await interaction.update({ content: guardMsg, components: [] });
+  const raw = interaction.fields.getTextInputValue("count").trim();
+  const total = Number(raw);
+  if (!Number.isInteger(total) || total < 1 || total > MAX_MULTI_PERSON) {
+    await interaction.reply({
+      content: `Enter a whole number from 1 to ${MAX_MULTI_PERSON}.`,
+      components: [buildPersonCountChoice(categoryId)],
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
-
-  const total = Number(interaction.values[0]);
-  if (!Number.isInteger(total) || total < 2) return;
 
   if (category.form.length === 0) {
     // Nothing per-person to collect — nothing more to do here.
-    await interaction.deferUpdate();
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     await completeOpen(interaction, categoryId, []);
     return;
   }
 
   const key = `${guildId}:${interaction.user.id}`;
   pendingMultiPerson.set(key, { categoryId, total, index: 1, answers: [] });
-  await interaction.showModal(
-    buildPersonFormModal(category, interaction, 1, total),
-  );
+  await interaction.reply({
+    content: `Got it — ${total} ${total === 1 ? "person" : "people"}.`,
+    components: [buildPersonFormNext(categoryId, 1)],
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
 /** Entry point from the personFormNext:<categoryId>:<index> "Continue" button. */
