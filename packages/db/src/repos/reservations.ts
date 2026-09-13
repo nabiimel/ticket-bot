@@ -1,4 +1,8 @@
-import type { ReservationRecord, ReservationStatus } from "@ticketbot/shared";
+import type {
+  ReservationBreakdownEntry,
+  ReservationRecord,
+  ReservationStatus,
+} from "@ticketbot/shared";
 import type { DB } from "../index.js";
 
 function map(r: any): ReservationRecord {
@@ -20,6 +24,9 @@ function map(r: any): ReservationRecord {
     doneBy: r.done_by ?? null,
     doneAt: r.done_at ?? null,
     updatedAt: r.updated_at ?? 0,
+    breakdown: r.breakdown_json
+      ? (JSON.parse(r.breakdown_json) as ReservationBreakdownEntry[])
+      : null,
   };
 }
 
@@ -124,6 +131,7 @@ export function createReservation(
     qty?: number;
     paid?: boolean;
     addedBy?: string | null;
+    breakdown?: ReservationBreakdownEntry[] | null;
   },
 ): ReservationRecord {
   const ts = now();
@@ -132,8 +140,8 @@ export function createReservation(
       `INSERT INTO reservations
          (guild_id, ticket_id, channel_id, buyer_user_id, buyer_tag,
           gakuran_name, roblox_user, note, qty, paid, status,
-          added_by, added_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
+          added_by, added_at, updated_at, breakdown_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)`,
     )
     .run(
       input.guildId,
@@ -149,6 +157,7 @@ export function createReservation(
       input.addedBy ?? null,
       ts,
       ts,
+      input.breakdown ? JSON.stringify(input.breakdown) : null,
     );
   return getReservation(db, Number(info.lastInsertRowid))!;
 }

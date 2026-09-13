@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import {
   robuxCost,
   type ReservationRecord,
@@ -69,6 +69,15 @@ export function ReservationsTable({
   const [snippetId, setSnippetId] = useState<number | "">("");
   const [markDone, setMarkDone] = useState(false);
   const [budgetDraft, setBudgetDraft] = useState<number>(budget);
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  const toggleExpanded = (id: number) =>
+    setExpanded((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
 
   const costOf = (qty: number) => robuxCost(qty, rate);
 
@@ -564,122 +573,172 @@ export function ReservationsTable({
             </thead>
             <tbody>
               {visible.map((r) => (
-                <tr
-                  key={r.id}
-                  className={`border-b border-line last:border-0 ${
-                    selected.has(r.id)
-                      ? "bg-[var(--accent-soft)]"
-                      : "odd:bg-surface even:bg-surface-2/40"
-                  }`}
-                >
-                  <td className="px-3 py-2 align-middle">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-[var(--accent)]"
-                      checked={selected.has(r.id)}
-                      onChange={(e) => toggleSel(r.id, e.target.checked)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <input
-                      className={`input w-full !py-1 ${r.status === "done" ? "text-faint line-through" : ""}`}
-                      defaultValue={r.gakuranName || r.buyerName}
-                      placeholder="—"
-                      onBlur={(e) =>
-                        saveField(r, "gakuranName", e.target.value)
-                      }
-                    />
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <input
-                      className="input w-full !py-1"
-                      defaultValue={r.robloxUser}
-                      placeholder="—"
-                      onBlur={(e) => saveField(r, "robloxUser", e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <input
-                      className="input w-full !py-1 text-faint"
-                      defaultValue={r.note}
-                      placeholder="—"
-                      onBlur={(e) => saveField(r, "note", e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <input
-                      type="number"
-                      min={0}
-                      step={rate.rerollUnit}
-                      className="input w-20 !py-1"
-                      defaultValue={r.qty}
-                      onBlur={(e) => saveField(r, "qty", e.target.value)}
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right align-middle tabular-nums">
-                    {nf.format(costOf(r.qty))}
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => togglePaid(r, !r.paid)}
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        r.paid
-                          ? "bg-success/15 text-success"
-                          : "bg-danger/10 text-danger"
-                      }`}
-                    >
-                      {r.paid ? "Paid" : "Not paid"}
-                    </button>
-                  </td>
-                  <td className="px-3 py-2 align-middle">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-[var(--accent)]"
-                      checked={r.status === "done"}
-                      disabled={pending}
-                      onChange={(e) => toggleDone(r, e.target.checked)}
-                      title={
-                        r.status === "done" ? "Mark not done" : "Mark done"
-                      }
-                    />
-                  </td>
-                  <td className="px-3 py-2 align-middle text-xs">
-                    {r.ticketNumber != null ? (
-                      r.channelId ? (
-                        <a
-                          className="text-accent hover:underline"
-                          href={`https://discord.com/channels/${guildId}/${r.channelId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          #{r.ticketNumber}
-                        </a>
-                      ) : (
-                        `#${r.ticketNumber}`
-                      )
-                    ) : (
-                      <span
-                        className="text-faint"
-                        title={`Added ${fmtAgo(r.addedAt)}${r.addedByName ? ` by ${r.addedByName}` : ""}`}
+                <Fragment key={r.id}>
+                  <tr
+                    className={`border-b border-line last:border-0 ${
+                      selected.has(r.id)
+                        ? "bg-[var(--accent-soft)]"
+                        : "odd:bg-surface even:bg-surface-2/40"
+                    }`}
+                  >
+                    <td className="px-3 py-2 align-middle">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-[var(--accent)]"
+                        checked={selected.has(r.id)}
+                        onChange={(e) => toggleSel(r.id, e.target.checked)}
+                      />
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <div className="flex items-center gap-1">
+                        {r.breakdown && r.breakdown.length > 0 && (
+                          <button
+                            type="button"
+                            className="shrink-0 text-faint hover:text-ink"
+                            title={
+                              expanded.has(r.id)
+                                ? "Hide people"
+                                : `Show ${r.breakdown.length} people`
+                            }
+                            onClick={() => toggleExpanded(r.id)}
+                          >
+                            {expanded.has(r.id) ? "▾" : "▸"}
+                          </button>
+                        )}
+                        <input
+                          className={`input w-full !py-1 ${r.status === "done" ? "text-faint line-through" : ""}`}
+                          defaultValue={r.gakuranName || r.buyerName}
+                          placeholder="—"
+                          onBlur={(e) =>
+                            saveField(r, "gakuranName", e.target.value)
+                          }
+                        />
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <input
+                        className="input w-full !py-1"
+                        defaultValue={r.robloxUser}
+                        placeholder="—"
+                        onBlur={(e) =>
+                          saveField(r, "robloxUser", e.target.value)
+                        }
+                      />
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <input
+                        className="input w-full !py-1 text-faint"
+                        defaultValue={r.note}
+                        placeholder="—"
+                        onBlur={(e) => saveField(r, "note", e.target.value)}
+                      />
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <input
+                        type="number"
+                        min={0}
+                        step={rate.rerollUnit}
+                        className="input w-20 !py-1"
+                        defaultValue={r.qty}
+                        onBlur={(e) => saveField(r, "qty", e.target.value)}
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-right align-middle tabular-nums">
+                      {nf.format(costOf(r.qty))}
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => togglePaid(r, !r.paid)}
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          r.paid
+                            ? "bg-success/15 text-success"
+                            : "bg-danger/10 text-danger"
+                        }`}
                       >
-                        walk-in
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right align-middle">
-                    <button
-                      type="button"
-                      className="text-faint hover:text-danger"
-                      title="Delete"
-                      disabled={pending}
-                      onClick={() => void remove(r)}
-                    >
-                      ✕
-                    </button>
-                  </td>
-                </tr>
+                        {r.paid ? "Paid" : "Not paid"}
+                      </button>
+                    </td>
+                    <td className="px-3 py-2 align-middle">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-[var(--accent)]"
+                        checked={r.status === "done"}
+                        disabled={pending}
+                        onChange={(e) => toggleDone(r, e.target.checked)}
+                        title={
+                          r.status === "done" ? "Mark not done" : "Mark done"
+                        }
+                      />
+                    </td>
+                    <td className="px-3 py-2 align-middle text-xs">
+                      {r.ticketNumber != null ? (
+                        r.channelId ? (
+                          <a
+                            className="text-accent hover:underline"
+                            href={`https://discord.com/channels/${guildId}/${r.channelId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            #{r.ticketNumber}
+                          </a>
+                        ) : (
+                          `#${r.ticketNumber}`
+                        )
+                      ) : (
+                        <span
+                          className="text-faint"
+                          title={`Added ${fmtAgo(r.addedAt)}${r.addedByName ? ` by ${r.addedByName}` : ""}`}
+                        >
+                          walk-in
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right align-middle">
+                      <button
+                        type="button"
+                        className="text-faint hover:text-danger"
+                        title="Delete"
+                        disabled={pending}
+                        onClick={() => void remove(r)}
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                  {expanded.has(r.id) && r.breakdown && (
+                    <tr className="border-b border-line bg-surface-2/60 last:border-0">
+                      <td />
+                      <td colSpan={9} className="px-3 py-2">
+                        <table className="w-full max-w-xl text-xs">
+                          <thead>
+                            <tr className="text-left uppercase tracking-wide text-faint">
+                              <th className="py-1 pr-4">Name</th>
+                              <th className="py-1 pr-4">Roblox User</th>
+                              <th className="py-1 pr-4 text-right">
+                                RR&apos;s
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {r.breakdown.map((p, i) => (
+                              <tr key={i} className="border-t border-line/50">
+                                <td className="py-1 pr-4">{p.name || "—"}</td>
+                                <td className="py-1 pr-4">
+                                  {p.robloxUser || "—"}
+                                </td>
+                                <td className="py-1 pr-4 text-right tabular-nums">
+                                  {nf.format(p.qty)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

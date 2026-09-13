@@ -5,3 +5,4 @@ export * from "./defaults.js";
 export * from "./i18n.js";
 export * from "./reservations.js";
 export * from "./formValidation.js";
+export * from "./multiPerson.js";

@@ -1,5 +1,11 @@
 import { MessageFlags, type ButtonInteraction } from "discord.js";
-import { robuxCost, t, type RobuxRate } from "@ticketbot/shared";
+import {
+  groupMultiPersonResponses,
+  robuxCost,
+  t,
+  type ReservationBreakdownEntry,
+  type RobuxRate,
+} from "@ticketbot/shared";
 import { repos } from "@ticketbot/db";
 import type { ButtonHandler } from "../registry.js";
 import { getDb } from "../lib/db.js";
@@ -73,17 +79,36 @@ const reserveButton: ButtonHandler = {
     const buyerTag =
       buyer?.displayName ?? buyer?.user.username ?? ticket.openerId;
 
-    // Pull Roblox name / Gakuran name / reroll count from the ticket's form.
+    // Pull Roblox name / Gakuran name / reroll count from the ticket's form —
+    // either one set of fields, or (a multi-person order) one set per person.
     const responses = repos.tickets.getFormResponses(db, ticket.id);
-    const robloxUser = pickFormValue(responses, /roblox/i);
-    const gakuranName =
-      pickFormValue(responses, /gakuran/i) ||
-      pickFormValue(responses, /\bign\b|in.?game.?name/i);
-    const rerollAnswer = pickFormValue(
-      responses,
-      /re-?roll|\brr'?s?\b|how many/i,
-    );
-    const qty = firstInt(rerollAnswer);
+    const multiPerson = groupMultiPersonResponses(responses);
+
+    let gakuranName: string;
+    let robloxUser: string;
+    let qty: number;
+    let breakdown: ReservationBreakdownEntry[] | null = null;
+
+    if (multiPerson) {
+      breakdown = multiPerson.map(({ name, robloxUser, qty }) => ({
+        name,
+        robloxUser,
+        qty,
+      }));
+      qty = breakdown.reduce((sum, p) => sum + p.qty, 0);
+      const names = breakdown.map((p) => p.name || "?");
+      gakuranName =
+        names.length > 3
+          ? `${names.slice(0, 3).join(", ")} +${names.length - 3} more`
+          : names.join(", ");
+      robloxUser = "";
+    } else {
+      robloxUser = pickFormValue(responses, /roblox/i);
+      gakuranName =
+        pickFormValue(responses, /gakuran/i) ||
+        pickFormValue(responses, /\bign\b|in.?game.?name/i);
+      qty = firstInt(pickFormValue(responses, /re-?roll|\brr'?s?\b|how many/i));
+    }
 
     repos.reservations.createReservation(db, {
       guildId: ticket.guildId,
@@ -94,6 +119,7 @@ const reserveButton: ButtonHandler = {
       gakuranName,
       robloxUser,
       qty,
+      breakdown,
       addedBy: interaction.user.id,
     });
     repos.audit.logAudit(db, {

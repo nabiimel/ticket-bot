@@ -14,6 +14,8 @@ import { useConfirm } from "./ConfirmDialog";
 import { StatusPill, ticketStatusKind } from "./StatusPill";
 import { TagChips } from "./TicketMeta";
 
+type BreakdownEntry = { name: string; robloxUser: string; qty: number };
+
 export function ConsoleTicketRow({
   t,
   category,
@@ -24,6 +26,7 @@ export function ConsoleTicketRow({
   slaUnclaimedS,
   slaNoReplyS,
   openReservationLabel,
+  breakdown,
 }: {
   t: TicketRecord;
   category: string;
@@ -34,6 +37,7 @@ export function ConsoleTicketRow({
   slaUnclaimedS: number;
   slaNoReplyS: number;
   openReservationLabel?: string | null;
+  breakdown?: BreakdownEntry[] | null;
 }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -43,6 +47,7 @@ export function ConsoleTicketRow({
   const [priority, setPriority] = useState(t.priority);
   const [paid, setPaid] = useState(t.paid);
   const [gone, setGone] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     setNow(Date.now() / 1000);
@@ -115,102 +120,142 @@ export function ConsoleTicketRow({
   };
 
   return (
-    <tr className={pending ? "opacity-50" : ""}>
-      <td className="py-2 pr-3 font-medium tabular-nums">
-        #{t.number}
-        {flagged && (
-          <span
-            className="ml-1.5 text-warn"
-            title={
-              staleUnclaimed
-                ? "Unclaimed past target"
-                : "No staff reply past target"
-            }
-          >
-            ▲
-          </span>
-        )}
-      </td>
-      <td className="py-2 pr-3 text-dim">
-        <div className="flex flex-col gap-1">
-          <span>{category}</span>
-          <TagChips tags={t.tags} />
-        </div>
-      </td>
-      <td className="max-w-[10rem] truncate py-2 pr-3 text-dim">{opener}</td>
-      <td className="py-2 pr-3">
-        <select
-          value={priority}
-          disabled={pending}
-          onChange={(e) => changePriority(e.target.value)}
-          className="rounded-md border border-line bg-surface px-1.5 py-0.5 text-xs"
-          aria-label={`Priority for ticket #${t.number}`}
-        >
-          {TICKET_PRIORITIES.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-      </td>
-      <td className="py-2 pr-3">
-        <StatusPill
-          kind={ticketStatusKind({
-            claiming,
-            claimed,
-            hasStaffReply: !!t.firstStaffMsgAt,
-          })}
-        />
-      </td>
-      <td
-        className="py-2 pr-3 text-right tabular-nums text-dim"
-        title={new Date(t.createdAt * 1000).toLocaleString()}
-        suppressHydrationWarning
-      >
-        {fmtDuration(age)}
-      </td>
-      <td className="py-2">
-        <div className="flex items-center justify-end gap-2">
-          <label
-            className="flex items-center gap-1 text-xs text-dim"
-            title="Relocates the channel to the configured paid category"
-          >
-            <input
-              type="checkbox"
-              checked={paid}
-              disabled={pending}
-              onChange={togglePaid}
-            />
-            Paid
-          </label>
-          <a
-            className="text-xs text-accent hover:underline"
-            href={`https://discord.com/channels/${guildId}/${t.channelId}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Jump
-          </a>
-          {claiming && !claimed && (
+    <>
+      <tr className={pending ? "opacity-50" : ""}>
+        <td className="py-2 pr-3 font-medium tabular-nums">
+          {breakdown && breakdown.length > 0 && (
             <button
               type="button"
-              className="btn-secondary !px-2 !py-1 text-xs"
-              disabled={pending}
-              onClick={claim}
+              className="mr-1 text-faint hover:text-ink"
+              title={
+                expanded ? "Hide people" : `Show ${breakdown.length} people`
+              }
+              onClick={() => setExpanded((v) => !v)}
             >
-              Claim
+              {expanded ? "▾" : "▸"}
             </button>
           )}
-          <button
-            type="button"
-            className="btn-danger !px-2 !py-1 text-xs"
+          #{t.number}
+          {flagged && (
+            <span
+              className="ml-1.5 text-warn"
+              title={
+                staleUnclaimed
+                  ? "Unclaimed past target"
+                  : "No staff reply past target"
+              }
+            >
+              ▲
+            </span>
+          )}
+        </td>
+        <td className="py-2 pr-3 text-dim">
+          <div className="flex flex-col gap-1">
+            <span>{category}</span>
+            <TagChips tags={t.tags} />
+          </div>
+        </td>
+        <td className="max-w-[10rem] truncate py-2 pr-3 text-dim">{opener}</td>
+        <td className="py-2 pr-3">
+          <select
+            value={priority}
             disabled={pending}
-            onClick={() => void close()}
+            onChange={(e) => changePriority(e.target.value)}
+            className="rounded-md border border-line bg-surface px-1.5 py-0.5 text-xs"
+            aria-label={`Priority for ticket #${t.number}`}
           >
-            Close
-          </button>
-        </div>
-      </td>
-    </tr>
+            {TICKET_PRIORITIES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </td>
+        <td className="py-2 pr-3">
+          <StatusPill
+            kind={ticketStatusKind({
+              claiming,
+              claimed,
+              hasStaffReply: !!t.firstStaffMsgAt,
+            })}
+          />
+        </td>
+        <td
+          className="py-2 pr-3 text-right tabular-nums text-dim"
+          title={new Date(t.createdAt * 1000).toLocaleString()}
+          suppressHydrationWarning
+        >
+          {fmtDuration(age)}
+        </td>
+        <td className="py-2">
+          <div className="flex items-center justify-end gap-2">
+            <label
+              className="flex items-center gap-1 text-xs text-dim"
+              title="Relocates the channel to the configured paid category"
+            >
+              <input
+                type="checkbox"
+                checked={paid}
+                disabled={pending}
+                onChange={togglePaid}
+              />
+              Paid
+            </label>
+            <a
+              className="text-xs text-accent hover:underline"
+              href={`https://discord.com/channels/${guildId}/${t.channelId}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Jump
+            </a>
+            {claiming && !claimed && (
+              <button
+                type="button"
+                className="btn-secondary !px-2 !py-1 text-xs"
+                disabled={pending}
+                onClick={claim}
+              >
+                Claim
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn-danger !px-2 !py-1 text-xs"
+              disabled={pending}
+              onClick={() => void close()}
+            >
+              Close
+            </button>
+          </div>
+        </td>
+      </tr>
+      {expanded && breakdown && (
+        <tr className="bg-surface-2/60">
+          <td colSpan={7} className="py-2 pr-3">
+            <table className="w-full max-w-xl text-xs">
+              <thead>
+                <tr className="text-left uppercase tracking-wide text-faint">
+                  <th className="py-1 pr-4">Name</th>
+                  <th className="py-1 pr-4">Roblox User</th>
+                  <th className="py-1 pr-4 text-right">RR&apos;s</th>
+                </tr>
+              </thead>
+              <tbody>
+                {breakdown.map((p, i) => (
+                  <tr key={i} className="border-t border-line/50">
+                    <td className="py-1 pr-4">{p.name || "—"}</td>
+                    <td className="py-1 pr-4">{p.robloxUser || "—"}</td>
+                    <td className="py-1 pr-4 text-right tabular-nums">
+                      {p.qty.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

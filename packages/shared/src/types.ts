@@ -501,4 +501,12 @@ export interface ReservationRecord {
   doneBy: string | null;
   doneAt: number | null;
   updatedAt: number;
+  /** Per-person breakdown when this reservation came from a multi-person order. */
+  breakdown: ReservationBreakdownEntry[] | null;
+}
+
+export interface ReservationBreakdownEntry {
+  name: string;
+  robloxUser: string;
+  qty: number;
 }

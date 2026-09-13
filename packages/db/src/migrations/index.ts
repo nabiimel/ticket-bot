@@ -20,6 +20,7 @@ import { migration as m019 } from "./019_dashboard_presence.js";
 import { migration as m020 } from "./020_ticket_controls_message.js";
 import { migration as m021 } from "./021_category_ask_reservation.js";
 import { migration as m022 } from "./022_category_reservation_prompt.js";
+import { migration as m023 } from "./023_reservation_breakdown.js";
 
 export interface Migration {
   name: string;
@@ -50,4 +51,5 @@ export const MIGRATIONS: Migration[] = [
   m020,
   m021,
   m022,
+  m023,
 ];

@@ -1,4 +1,8 @@
-import { TICKET_PRIORITIES, type TicketPriority } from "@ticketbot/shared";
+import {
+  groupMultiPersonResponses,
+  TICKET_PRIORITIES,
+  type TicketPriority,
+} from "@ticketbot/shared";
 import { db, repos } from "@/lib/db";
 import { getGuildMemberNames, nameOf } from "@/lib/discord";
 import { PageHeader } from "@/components/PageHeader";
@@ -72,6 +76,19 @@ export default async function TicketsConsole({
     }
   }
 
+  // A multi-person order's per-person answers, so the row can show a
+  // dropdown of who's included instead of just the raw form responses.
+  const multiPersonByTicket = new Map<
+    number,
+    { name: string; robloxUser: string; qty: number }[]
+  >();
+  for (const t of tickets) {
+    const entries = groupMultiPersonResponses(
+      repos.tickets.getFormResponses(db(), t.id),
+    );
+    if (entries) multiPersonByTicket.set(t.id, entries);
+  }
+
   return (
     <div className="page">
       <PageHeader
@@ -121,6 +138,7 @@ export default async function TicketsConsole({
                   openReservationLabel={
                     openReservationByTicket.get(t.id) ?? null
                   }
+                  breakdown={multiPersonByTicket.get(t.id) ?? null}
                 />
               ))}
             </tbody>
