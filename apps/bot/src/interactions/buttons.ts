@@ -17,7 +17,7 @@ import {
 import { buildCloseConfirm, buildTicketControls } from "../lib/embeds.js";
 import { isStaff } from "../lib/permissions.js";
 import { closeTicket } from "../lib/ticketManager.js";
-import { startOpen } from "./openFlow.js";
+import { handleReservationChoice, startOpen } from "./openFlow.js";
 import { applicationButtonHandlers } from "./applications.js";
 import { reservationButtonHandlers } from "./reservations.js";
 import { logger } from "../lib/logger.js";
@@ -33,6 +33,23 @@ const openButton: ButtonHandler = {
       interaction,
       categoryId,
       Number.isNaN(panelId as number) ? null : panelId,
+    );
+  },
+};
+
+const reservationChoiceButton: ButtonHandler = {
+  prefix: "reservationChoice",
+  async run(interaction, args) {
+    const categoryId = Number(args[0]);
+    if (Number.isNaN(categoryId)) return;
+    const isReservation = args[1] === "yes";
+    // `reservationChoice:<categoryId>:<yes|no>:<panelId>` — panelId optional.
+    const panelId = args[2] ? Number(args[2]) : null;
+    await handleReservationChoice(
+      interaction,
+      categoryId,
+      Number.isNaN(panelId as number) ? null : panelId,
+      isReservation,
     );
   },
 };
@@ -250,6 +267,7 @@ const rateButton: ButtonHandler = {
 
 export const buttonHandlers: ButtonHandler[] = [
   openButton,
+  reservationChoiceButton,
   claimButton,
   closeConfirmButton, // must be registered before closeButton (prefix match order)
   closeReasonButton,

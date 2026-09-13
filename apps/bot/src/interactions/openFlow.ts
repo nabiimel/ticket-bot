@@ -16,6 +16,7 @@ import {
   getGuildConfigCached,
 } from "../lib/configCache.js";
 import { buildContext } from "../lib/context.js";
+import { buildReservationChoice } from "../lib/embeds.js";
 import { createTicket, type FormAnswer } from "../lib/ticketManager.js";
 import { hit } from "../lib/cooldown.js";
 import { alertAdmins, preflightTicketCreate } from "../lib/preflight.js";
@@ -39,6 +40,14 @@ const pendingPanel = new Map<
 >();
 const PENDING_TTL_MS = 5 * 60_000;
 
+/**
+ * The "is this a reservation?" answer, keyed `guildId:userId`, remembered
+ * across the modal round-trip the same way `pendingPanel` remembers the
+ * panel id — read (and cleared) by `completeOpen` so it can be folded into
+ * the ticket's form responses regardless of whether the category has a form.
+ */
+const pendingReservationChoice = new Map<string, boolean>();
+
 type AnyInteraction =
   ButtonInteraction | StringSelectMenuInteraction | ModalSubmitInteraction;
 
@@ -55,6 +64,48 @@ function findCategory(
   categoryId: number,
 ): CategoryConfig | null {
   return getCategoriesCached(guildId).find((c) => c.id === categoryId) ?? null;
+}
+
+/** Builds the intake-form modal for a category (up to 5 fields, Discord's cap). */
+function buildFormModal(
+  category: CategoryConfig,
+  interaction:
+    ButtonInteraction<"cached"> | StringSelectMenuInteraction<"cached">,
+): ModalBuilder {
+  // Tokens resolvable before the ticket exists: {user*}, {category*}, {guild*}.
+  const fieldCtx = buildContext({
+    guild: interaction.guild,
+    opener: interaction.member,
+    category,
+  });
+  const modal = new ModalBuilder()
+    .setCustomId(`form:${category.id}`)
+    .setTitle(`Open ${category.label}`.slice(0, 45));
+  for (const field of category.form.slice(0, 5)) {
+    const label =
+      renderTemplate(field.label, fieldCtx) || field.label || "Answer";
+    const input = new TextInputBuilder()
+      .setCustomId(`field:${field.key}`)
+      .setLabel(label.slice(0, 45))
+      .setStyle(
+        field.style === "paragraph"
+          ? TextInputStyle.Paragraph
+          : TextInputStyle.Short,
+      )
+      .setRequired(field.required);
+    // Discord's modal text inputs have no numeric-only mode, so hint it in
+    // the placeholder — the actual rule is enforced on submit (modals.ts).
+    const ph =
+      renderTemplate(field.placeholder, fieldCtx) ||
+      (field.validation === "numeric" ? "Numbers only" : undefined);
+    if (ph) input.setPlaceholder(ph.slice(0, 100));
+    if (field.minLength != null) input.setMinLength(field.minLength);
+    if (field.maxLength != null) input.setMaxLength(field.maxLength);
+    modal.addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(input),
+    );
+  }
+  return modal;
 }
 
 /** Entry point from the `open:` button and the `panelSelect:` menu. */
@@ -94,45 +145,59 @@ export async function startOpen(
     pendingPanel.set(key, { panelId, categoryId, at: Date.now() });
   }
 
-  if (category.form.length > 0) {
-    // Tokens resolvable before the ticket exists: {user*}, {category*}, {guild*}.
-    const fieldCtx = buildContext({
-      guild: interaction.guild,
-      opener: interaction.member,
-      category,
+  if (category.askReservation) {
+    await interaction.reply({
+      content: `**${t("ticket.open.reservationPrompt.title", lang)}**\n${t(
+        "ticket.open.reservationPrompt.body",
+        lang,
+      )}`,
+      components: [buildReservationChoice(categoryId, panelId)],
+      flags: MessageFlags.Ephemeral,
     });
-    const modal = new ModalBuilder()
-      .setCustomId(`form:${category.id}`)
-      .setTitle(`Open ${category.label}`.slice(0, 45));
-    for (const field of category.form.slice(0, 5)) {
-      const label =
-        renderTemplate(field.label, fieldCtx) || field.label || "Answer";
-      const input = new TextInputBuilder()
-        .setCustomId(`field:${field.key}`)
-        .setLabel(label.slice(0, 45))
-        .setStyle(
-          field.style === "paragraph"
-            ? TextInputStyle.Paragraph
-            : TextInputStyle.Short,
-        )
-        .setRequired(field.required);
-      // Discord's modal text inputs have no numeric-only mode, so hint it in
-      // the placeholder — the actual rule is enforced on submit (modals.ts).
-      const ph =
-        renderTemplate(field.placeholder, fieldCtx) ||
-        (field.validation === "numeric" ? "Numbers only" : undefined);
-      if (ph) input.setPlaceholder(ph.slice(0, 100));
-      if (field.minLength != null) input.setMinLength(field.minLength);
-      if (field.maxLength != null) input.setMaxLength(field.maxLength);
-      modal.addComponents(
-        new ActionRowBuilder<TextInputBuilder>().addComponents(input),
-      );
-    }
-    await interaction.showModal(modal);
+    return;
+  }
+
+  if (category.form.length > 0) {
+    await interaction.showModal(buildFormModal(category, interaction));
     return;
   }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await completeOpen(interaction, categoryId, []);
+}
+
+/** Entry point from the reservationChoice:<categoryId>:<yes|no>:<panelId?> buttons. */
+export async function handleReservationChoice(
+  interaction: ButtonInteraction,
+  categoryId: number,
+  panelId: number | null,
+  isReservation: boolean,
+): Promise<void> {
+  if (!interaction.inCachedGuild()) return;
+  const guildId = interaction.guildId!;
+  const lang = getGuildConfigCached(guildId).language;
+  const category = findCategory(guildId, categoryId);
+  if (!category) {
+    await ephemeral(interaction, t("ticket.open.noCategory", lang));
+    return;
+  }
+
+  // Re-check guards — state may have changed since the original click.
+  const guardMsg = openGuard(interaction.user.id, guildId, category, lang);
+  if (guardMsg) {
+    await interaction.update({ content: guardMsg, components: [] });
+    return;
+  }
+
+  const lockKey = `${guildId}:${interaction.user.id}`;
+  pendingReservationChoice.set(lockKey, isReservation);
+
+  if (category.form.length > 0) {
+    await interaction.showModal(buildFormModal(category, interaction));
+    return;
+  }
+
+  await interaction.deferUpdate();
   await completeOpen(interaction, categoryId, []);
 }
 
@@ -190,6 +255,21 @@ export async function completeOpen(
   if (!category) {
     await interaction.editReply({ content: t("ticket.open.noCategory", lang) });
     return;
+  }
+
+  // Fold in the "is this a reservation?" answer, if this category asked one.
+  const choiceKey = `${guildId}:${interaction.user.id}`;
+  const reservationChoice = pendingReservationChoice.get(choiceKey);
+  if (reservationChoice !== undefined) {
+    pendingReservationChoice.delete(choiceKey);
+    answers = [
+      {
+        key: "is_reservation",
+        label: t("ticket.open.reservationAnswer.label", lang),
+        value: reservationChoice ? "Yes" : "No",
+      },
+      ...answers,
+    ];
   }
 
   // Re-check guards (state may have changed while the modal was open).

@@ -31,6 +31,7 @@ function map(r: any): CategoryConfig {
     disabled: !!r.disabled,
     disabledReason: r.disabled_reason ?? null,
     sortOrder: r.sort_order,
+    askReservation: !!r.ask_reservation,
   };
 }
 
@@ -74,6 +75,7 @@ export interface CategoryInput {
   disabled?: boolean;
   disabledReason?: string | null;
   sortOrder?: number;
+  askReservation?: boolean;
 }
 
 export function createCategory(
@@ -86,10 +88,11 @@ export function createCategory(
       `INSERT INTO categories
         (guild_id, key, label, emoji, description, staff_role_ids_json,
          ping_role_ids_json, discord_parent_id, welcome_embed_json, form_json,
-         per_user_limit, naming_scheme, disabled, disabled_reason, sort_order)
+         per_user_limit, naming_scheme, disabled, disabled_reason, sort_order,
+         ask_reservation)
        VALUES (@guild_id, @key, @label, @emoji, @description, @staff, @ping,
                @parent, @welcome, @form, @limit, @naming, @disabled,
-               @disabledReason, @sort)`,
+               @disabledReason, @sort, @askReservation)`,
     )
     .run({
       guild_id: guildId,
@@ -107,6 +110,7 @@ export function createCategory(
       disabled: input.disabled ? 1 : 0,
       disabledReason: input.disabledReason ?? null,
       sort: input.sortOrder ?? 0,
+      askReservation: input.askReservation ? 1 : 0,
     });
   return getCategory(db, Number(info.lastInsertRowid))!;
 }
@@ -131,6 +135,7 @@ export function updateCategory(
     disabled: "disabled",
     disabledReason: "disabled_reason",
     sortOrder: "sort_order",
+    askReservation: "ask_reservation",
   };
   const sets: string[] = [];
   const values: unknown[] = [];
@@ -142,7 +147,7 @@ export function updateCategory(
       value = JSON.stringify(raw ?? []);
     } else if (key === "welcomeEmbed") {
       value = raw == null ? null : JSON.stringify(raw);
-    } else if (key === "disabled") {
+    } else if (key === "disabled" || key === "askReservation") {
       value = raw ? 1 : 0;
     }
     sets.push(`${col} = ?`);

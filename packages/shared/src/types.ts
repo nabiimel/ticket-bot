@@ -212,6 +212,8 @@ export interface CategoryConfig {
   disabled: boolean;
   disabledReason: string | null;
   sortOrder: number;
+  /** Ask "Is this a reservation?" before the intake form (same form either way). */
+  askReservation: boolean;
 }
 
 export interface PanelConfig {

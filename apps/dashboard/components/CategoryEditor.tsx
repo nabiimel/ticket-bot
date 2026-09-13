@@ -95,6 +95,7 @@ export function CategoryEditor({
         namingScheme: c.namingScheme,
         disabled: c.disabled,
         disabledReason: c.disabled ? c.disabledReason : null,
+        askReservation: c.askReservation,
         welcomeEmbed: useWelcome
           ? (c.welcomeEmbed ?? DEFAULT_WELCOME_EMBED)
           : null,
@@ -287,6 +288,22 @@ export function CategoryEditor({
         />
         <p className="mt-1 text-xs text-faint">
           A Discord category — the grey folder in the channel sidebar.
+        </p>
+      </div>
+
+      <div className="card">
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <input
+            type="checkbox"
+            checked={c.askReservation}
+            onChange={(e) => patch({ askReservation: e.target.checked })}
+          />
+          Ask “Is this a reservation?” before the form
+        </label>
+        <p className="mt-1 text-xs text-faint">
+          Members pick Yes/No first, then fill out the same form either way —
+          the answer is added to the ticket’s form responses so staff can spot
+          reservation-intent tickets at a glance.
         </p>
       </div>
 

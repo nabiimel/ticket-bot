@@ -353,6 +353,7 @@ export interface CategoryPayload {
   disabled?: boolean;
   disabledReason?: string | null;
   sortOrder?: number;
+  askReservation?: boolean;
 }
 
 const CATEGORY_KEY = /^[a-z0-9][a-z0-9_-]{0,31}$/;
@@ -445,6 +446,7 @@ export async function saveCategory(
     form: "form",
     disabled: "paused",
     disabledReason: "pause reason",
+    askReservation: "ask if reservation",
   };
   const changed = Object.keys(payload)
     .filter(

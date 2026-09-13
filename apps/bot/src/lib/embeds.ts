@@ -174,6 +174,24 @@ export function buildCloseConfirm(
   );
 }
 
+/** Yes/No buttons for the pre-form "is this a reservation?" prompt. */
+export function buildReservationChoice(
+  categoryId: number,
+  panelId: number | null,
+): ActionRowBuilder<ButtonBuilder> {
+  const suffix = panelId != null ? `:${panelId}` : "";
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`reservationChoice:${categoryId}:yes${suffix}`)
+      .setLabel("📌 Yes, it's a reservation")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(`reservationChoice:${categoryId}:no${suffix}`)
+      .setLabel("No, just a question")
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
 /** 1–5 star rating buttons. */
 export function buildRatingRow(
   ticketId: number,
