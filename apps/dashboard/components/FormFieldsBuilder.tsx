@@ -98,6 +98,11 @@ export function FormFieldsBuilder({
                     (numbers only)
                   </span>
                 )}
+                {f.validation === "reroll-split" && (
+                  <span className="normal-case text-[#949ba4]">
+                    (name - count list)
+                  </span>
+                )}
               </div>
               <div
                 className={`rounded bg-[#1e1f22] px-3 text-sm text-[#87898c] ${
@@ -161,18 +166,61 @@ export function FormFieldsBuilder({
                     Required
                   </label>
                   <label className="flex items-center gap-1.5 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={f.validation === "numeric"}
-                      onChange={(e) =>
+                    <span className="text-faint">Validation</span>
+                    <select
+                      className="input max-w-[16rem]"
+                      value={f.validation ?? "none"}
+                      onChange={(e) => {
+                        const next = e.target.value;
                         set(i, {
-                          validation: e.target.checked ? "numeric" : undefined,
-                        })
-                      }
-                    />
-                    Numbers only
+                          validation:
+                            next === "none"
+                              ? undefined
+                              : (next as FormField["validation"]),
+                          sumField:
+                            next === "reroll-split" ? f.sumField : undefined,
+                        });
+                      }}
+                    >
+                      <option value="none">None</option>
+                      <option value="numeric">Numbers only</option>
+                      <option value="reroll-split">
+                        Name - count list (sums to another field)
+                      </option>
+                    </select>
                   </label>
+                  {f.validation === "reroll-split" && (
+                    <label className="flex items-center gap-1.5 text-xs">
+                      <span className="text-faint">Total field</span>
+                      <select
+                        className="input max-w-[14rem]"
+                        value={f.sumField ?? ""}
+                        onChange={(e) =>
+                          set(i, { sumField: e.target.value || undefined })
+                        }
+                      >
+                        <option value="">Choose a field…</option>
+                        {fields
+                          .filter((other, oi) => oi !== i && other.key)
+                          .map((other) => (
+                            <option key={other.key} value={other.key}>
+                              {other.label || other.key}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  )}
                 </div>
+                {f.validation === "reroll-split" && (
+                  <p className="text-xs text-faint">
+                    Members enter one person per line like{" "}
+                    <code className="text-discord-blurple">
+                      Anne - 500 / Janben - 250
+                    </code>
+                    ; the counts can’t add up to more than the total field’s
+                    answer.
+                  </p>
+                )}
                 <div className="grid gap-3 sm:grid-cols-3">
                   <label className="block">
                     <span className="label">Min length</span>

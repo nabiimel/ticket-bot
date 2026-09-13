@@ -56,7 +56,7 @@ export type FormFieldStyle = "short" | "paragraph";
 
 /** "numeric" = digits only (0-9), enforced on submit since Discord's modal
  * text inputs have no native number-only mode. */
-export type FormFieldValidation = "numeric";
+export type FormFieldValidation = "numeric" | "reroll-split";
 
 export interface FormField {
   /** Stable key used to store the response. */
@@ -68,6 +68,12 @@ export interface FormField {
   maxLength?: number;
   placeholder?: string;
   validation?: FormFieldValidation;
+  /**
+   * For validation "reroll-split" only: the `key` of the other field in this
+   * form whose numeric value is the total this field's "Name - count" list
+   * must not exceed.
+   */
+  sumField?: string;
 }
 
 // ---------------------------------------------------------------------------

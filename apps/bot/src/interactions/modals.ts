@@ -1,5 +1,9 @@
 import { MessageFlags } from "discord.js";
-import { t, validateFormAnswer } from "@ticketbot/shared";
+import {
+  t,
+  validateFormAnswer,
+  validateRerollSplitSum,
+} from "@ticketbot/shared";
 import { repos } from "@ticketbot/db";
 import type { ModalHandler } from "../registry.js";
 import { getDb } from "../lib/db.js";
@@ -28,6 +32,21 @@ const formModal: ModalHandler = {
       const error = validateFormAnswer(field, value);
       if (error) errors.push(error);
       answers.push({ key: field.key, label: field.label, value });
+    }
+    // Cross-field: a "reroll-split" field's per-person counts can't exceed
+    // the total declared in the field it references.
+    for (const field of category?.form ?? []) {
+      if (field.validation !== "reroll-split" || !field.sumField) continue;
+      const value = answers.find((a) => a.key === field.key)?.value ?? "";
+      const totalField = category?.form.find((f) => f.key === field.sumField);
+      const totalValue = answers.find((a) => a.key === field.sumField)?.value;
+      const error = validateRerollSplitSum(
+        field,
+        value,
+        totalField?.label ?? field.sumField,
+        totalValue,
+      );
+      if (error) errors.push(error);
     }
     if (errors.length > 0) {
       await interaction.editReply({
