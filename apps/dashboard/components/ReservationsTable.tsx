@@ -15,6 +15,7 @@ import {
   bulkSetReservationsPaid,
   deleteReservation,
   setReservationDone,
+  setReservationPersonDone,
   setReservationsBudget,
   updateReservation,
 } from "@/app/dashboard/[guildId]/actions";
@@ -154,6 +155,21 @@ export function ReservationsTable({
       const res = await updateReservation(guildId, r.id, { paid });
       if (!res.ok) {
         patch(r.id, { paid: r.paid });
+        toast.error(res.error ?? "Couldn't update");
+      }
+    });
+  };
+
+  const togglePersonDone = (r: Row, index: number, done: boolean) => {
+    if (!r.breakdown) return;
+    const prev = r.breakdown;
+    patch(r.id, {
+      breakdown: prev.map((p, i) => (i === index ? { ...p, done } : p)),
+    });
+    start(async () => {
+      const res = await setReservationPersonDone(guildId, r.id, index, done);
+      if (!res.ok) {
+        patch(r.id, { breakdown: prev });
         toast.error(res.error ?? "Couldn't update");
       }
     });
@@ -719,17 +735,36 @@ export function ReservationsTable({
                               <th className="py-1 pr-4 text-right">
                                 RR&apos;s
                               </th>
+                              <th className="py-1 pr-4">Done</th>
                             </tr>
                           </thead>
                           <tbody>
                             {r.breakdown.map((p, i) => (
                               <tr key={i} className="border-t border-line/50">
-                                <td className="py-1 pr-4">{p.name || "—"}</td>
+                                <td
+                                  className={`py-1 pr-4 ${p.done ? "text-faint line-through" : ""}`}
+                                >
+                                  {p.name || "—"}
+                                </td>
                                 <td className="py-1 pr-4">
                                   {p.robloxUser || "—"}
                                 </td>
                                 <td className="py-1 pr-4 text-right tabular-nums">
                                   {nf.format(p.qty)}
+                                </td>
+                                <td className="py-1 pr-4">
+                                  <input
+                                    type="checkbox"
+                                    className="h-3.5 w-3.5 accent-[var(--accent)]"
+                                    checked={!!p.done}
+                                    disabled={pending}
+                                    onChange={(e) =>
+                                      togglePersonDone(r, i, e.target.checked)
+                                    }
+                                    title={
+                                      p.done ? "Mark not done" : "Mark done"
+                                    }
+                                  />
                                 </td>
                               </tr>
                             ))}

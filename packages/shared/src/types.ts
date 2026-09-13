@@ -509,4 +509,6 @@ export interface ReservationBreakdownEntry {
   name: string;
   robloxUser: string;
   qty: number;
+  /** Per-person fulfillment, independent of the reservation's own done status. */
+  done?: boolean;
 }

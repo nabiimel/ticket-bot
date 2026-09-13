@@ -733,6 +733,30 @@ export async function closeTicketAdmin(
   return { ok: true };
 }
 
+/** Toggle one person's fulfillment within a multi-person order's breakdown. */
+export async function setReservationPersonDone(
+  guildId: string,
+  id: number,
+  personIndex: number,
+  done: boolean,
+) {
+  await requireGuildAccess(guildId);
+  if (isSuspended(guildId)) return { ok: false, error: SUSPENDED_MSG };
+  const r = repos.reservations.getReservation(db(), id);
+  if (!r || r.guildId !== guildId) {
+    return { ok: false, error: "Reservation not found" };
+  }
+  if (!r.breakdown || !r.breakdown[personIndex]) {
+    return { ok: false, error: "Person not found" };
+  }
+  const breakdown = r.breakdown.map((p, i) =>
+    i === personIndex ? { ...p, done } : p,
+  );
+  repos.reservations.updateReservation(db(), id, { breakdown });
+  rev(guildId);
+  return { ok: true };
+}
+
 export async function sendTest(
   guildId: string,
   channelId: string,

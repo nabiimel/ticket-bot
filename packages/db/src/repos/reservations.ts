@@ -195,6 +195,7 @@ export function updateReservation(
     gakuranName?: string;
     robloxUser?: string;
     paid?: boolean;
+    breakdown?: ReservationBreakdownEntry[] | null;
   },
 ): ReservationRecord | null {
   const sets: string[] = [];
@@ -218,6 +219,10 @@ export function updateReservation(
   if (patch.paid !== undefined) {
     sets.push("paid = ?");
     values.push(patch.paid ? 1 : 0);
+  }
+  if (patch.breakdown !== undefined) {
+    sets.push("breakdown_json = ?");
+    values.push(patch.breakdown ? JSON.stringify(patch.breakdown) : null);
   }
   if (sets.length > 0) {
     sets.push("updated_at = ?");
