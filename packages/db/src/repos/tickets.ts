@@ -139,6 +139,24 @@ export function getFormResponses(db: DB, ticketId: number): FormResponse[] {
     }));
 }
 
+/**
+ * A single form answer's value, or null if unset — a point lookup on the
+ * `(ticket_id, field_key)` primary key instead of pulling every response
+ * just to read one field (e.g. checking the "is_reservation" answer).
+ */
+export function getFormAnswer(
+  db: DB,
+  ticketId: number,
+  fieldKey: string,
+): string | null {
+  const row = db
+    .prepare(
+      `SELECT value FROM ticket_form_responses WHERE ticket_id = ? AND field_key = ?`,
+    )
+    .get(ticketId, fieldKey) as { value: string } | undefined;
+  return row?.value ?? null;
+}
+
 export function claimTicket(db: DB, id: number, staffId: string): void {
   db.prepare(
     `UPDATE tickets SET status = 'claimed', claimed_by = ?, claimed_at = ?

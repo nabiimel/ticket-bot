@@ -20,11 +20,14 @@ export function computePipelineStage(ticket: TicketRecord): PipelineStage {
   const db = getDb();
   const reservation = repos.reservations.getByTicket(db, ticket.id);
   const active = reservation && reservation.status !== "cancelled";
-  const wantsReservation = repos.tickets
-    .getFormResponses(db, ticket.id)
-    .some((r) => r.fieldKey === "is_reservation" && r.value === "Yes");
+  // Once a reservation exists the track is settled — no need to also check
+  // the form answer. This is the common case (every ticket action after the
+  // Reserved stage re-renders the pipeline), so skip the extra lookup then.
   const track: PipelineStage["track"] =
-    active || wantsReservation ? "reservation" : "direct";
+    active ||
+    repos.tickets.getFormAnswer(db, ticket.id, "is_reservation") === "Yes"
+      ? "reservation"
+      : "direct";
   return {
     track,
     reserved: !!active,

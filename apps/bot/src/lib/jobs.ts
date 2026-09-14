@@ -14,6 +14,7 @@ import type {
   DecideApplicationPayload,
   EditPanelPayload,
   JobRecord,
+  JobType,
   PostPreviewPayload,
   RepostApplicationPayload,
   RepostPanelPayload,
@@ -659,60 +660,54 @@ async function handleReservationBulkSnippet(
   }
 }
 
+/**
+ * One handler per job type, keyed the same way `buttonHandlers` keys
+ * interaction handlers by customId prefix — new job types are added by
+ * extending this map, not by editing a growing if/switch chain. `Record<JobType, ...>`
+ * (rather than `Partial`) makes the compiler enforce that every job type has
+ * a handler, so a new `JobType` variant without one fails typecheck instead
+ * of silently falling through to "unknown job type" at runtime.
+ */
+const jobHandlers: Record<
+  string,
+  (client: Client, job: JobRecord) => Promise<void>
+> = {
+  repost_panel: (client, job) =>
+    handleRepostOrEdit(client, job as JobRecord<RepostPanelPayload>),
+  edit_panel: (client, job) =>
+    handleRepostOrEdit(client, job as JobRecord<RepostPanelPayload>),
+  sync_ticket_perms: (client, job) =>
+    handleSyncPerms(client, job as JobRecord<SyncTicketPermsPayload>),
+  post_preview: (client, job) =>
+    handlePreview(client, job as JobRecord<PostPreviewPayload>),
+  admin_close_ticket: (client, job) =>
+    handleAdminClose(client, job as JobRecord<AdminCloseTicketPayload>),
+  admin_claim_ticket: (client, job) =>
+    handleAdminClaim(client, job as JobRecord<AdminClaimTicketPayload>),
+  admin_set_paid: (client, job) =>
+    handleAdminSetPaid(client, job as JobRecord<AdminSetPaidPayload>),
+  repost_application: (client, job) =>
+    handleRepostApplication(client, job as JobRecord<RepostApplicationPayload>),
+  decide_application: (client, job) =>
+    handleDecideApplication(client, job as JobRecord<DecideApplicationPayload>),
+  reservation_done: (client, job) =>
+    handleReservationDone(client, job as JobRecord<ReservationDonePayload>),
+  reservation_bulk_snippet: (client, job) =>
+    handleReservationBulkSnippet(
+      client,
+      job as JobRecord<ReservationBulkSnippetPayload>,
+    ),
+  post_stock_update: (client, job) =>
+    handlePostStockUpdate(client, job as JobRecord<PostStockUpdatePayload>),
+} satisfies Record<JobType, (client: Client, job: JobRecord) => Promise<void>>;
+
 async function processOne(client: Client, job: JobRecord): Promise<void> {
-  switch (job.type) {
-    case "repost_panel":
-    case "edit_panel":
-      await handleRepostOrEdit(client, job as JobRecord<RepostPanelPayload>);
-      break;
-    case "sync_ticket_perms":
-      await handleSyncPerms(client, job as JobRecord<SyncTicketPermsPayload>);
-      break;
-    case "post_preview":
-      await handlePreview(client, job as JobRecord<PostPreviewPayload>);
-      break;
-    case "admin_close_ticket":
-      await handleAdminClose(client, job as JobRecord<AdminCloseTicketPayload>);
-      break;
-    case "admin_claim_ticket":
-      await handleAdminClaim(client, job as JobRecord<AdminClaimTicketPayload>);
-      break;
-    case "admin_set_paid":
-      await handleAdminSetPaid(client, job as JobRecord<AdminSetPaidPayload>);
-      break;
-    case "repost_application":
-      await handleRepostApplication(
-        client,
-        job as JobRecord<RepostApplicationPayload>,
-      );
-      break;
-    case "decide_application":
-      await handleDecideApplication(
-        client,
-        job as JobRecord<DecideApplicationPayload>,
-      );
-      break;
-    case "reservation_done":
-      await handleReservationDone(
-        client,
-        job as JobRecord<ReservationDonePayload>,
-      );
-      break;
-    case "reservation_bulk_snippet":
-      await handleReservationBulkSnippet(
-        client,
-        job as JobRecord<ReservationBulkSnippetPayload>,
-      );
-      break;
-    case "post_stock_update":
-      await handlePostStockUpdate(
-        client,
-        job as JobRecord<PostStockUpdatePayload>,
-      );
-      break;
-    default:
-      logger.warn("unknown job type", job.type);
+  const handler = jobHandlers[job.type];
+  if (!handler) {
+    logger.warn("unknown job type", job.type);
+    return;
   }
+  await handler(client, job);
 }
 
 /** Process all currently-pending jobs once. Safe to call concurrently (guarded). */
