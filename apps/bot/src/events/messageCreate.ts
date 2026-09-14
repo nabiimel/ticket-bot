@@ -5,11 +5,22 @@ import {
   getCategoriesCached,
   getGuildConfigCached,
 } from "../lib/configCache.js";
+import { buildConfirmPaymentRow } from "../lib/embeds.js";
 import { isStaff } from "../lib/permissions.js";
 import { handlePingGuard } from "../lib/pingGuard.js";
+import { pendingPaymentProof } from "../lib/paymentProof.js";
 import { keepControlsSticky } from "../lib/ticketManager.js";
 
 export const name = Events.MessageCreate;
+
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|bmp)$/i;
+
+function hasImageAttachment(message: Message): boolean {
+  return message.attachments.some(
+    (a) =>
+      a.contentType?.startsWith("image/") || IMAGE_EXT_RE.test(a.name ?? ""),
+  );
+}
 
 export async function execute(message: Message): Promise<void> {
   if (message.author.bot || !message.inGuild()) return;
@@ -37,6 +48,26 @@ export async function execute(message: Message): Promise<void> {
   } else {
     // Ticket opener — check for seller ping-spam.
     await handlePingGuard(message, guildConfig).catch(() => {});
+
+    if (
+      !ticket.paid &&
+      !pendingPaymentProof.has(ticket.id) &&
+      hasImageAttachment(message)
+    ) {
+      pendingPaymentProof.add(ticket.id);
+      await message.channel
+        .send({
+          embeds: [
+            {
+              color: 0xf5a623,
+              title: "💳 Payment proof detected",
+              description: `<@${message.author.id}> attached what looks like a payment screenshot. Staff — verify it, then confirm below.`,
+            },
+          ],
+          components: [buildConfirmPaymentRow(ticket.id)],
+        })
+        .catch(() => {});
+    }
   }
 
   repos.tickets.bumpActivity(db, message.channelId, { staff });

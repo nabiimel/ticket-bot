@@ -129,6 +129,25 @@ export function buildPanelComponents(
 }
 
 /** Claim + Close buttons shown in the ticket channel. */
+/**
+ * Posted in-channel when a buyer attaches what looks like a payment
+ * screenshot, so staff can confirm the payment with one click instead of
+ * hunting for the screenshot and toggling paid status elsewhere.
+ */
+export function buildConfirmPaymentRow(
+  ticketId: number,
+  opts: { confirmed?: boolean } = {},
+): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`confirmPaid:${ticketId}`)
+      .setLabel(opts.confirmed ? "Confirmed" : "Confirm payment")
+      .setEmoji(opts.confirmed ? "✅" : "💰")
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(!!opts.confirmed),
+  );
+}
+
 export function buildTicketControls(
   ticketId: number,
   opts: { claimed?: boolean; claimEnabled?: boolean } = {},

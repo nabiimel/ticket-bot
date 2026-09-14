@@ -42,6 +42,7 @@
   "ticket.member.added": "{user.mention} was added to the ticket.",
   "ticket.member.removed": "{user.mention} was removed from the ticket.",
   "ticket.member.notStaff": "Only staff can manage ticket members.",
+  "ticket.confirmPaid.notStaff": "Only staff can confirm payments.",
   "ticket.rename.done": "Ticket channel renamed to {name}.",
   "ticket.priority.done": "Priority set to **{priority}** by {user.mention}.",
   "ticket.tag.added": "Added the `{tag}` label.",

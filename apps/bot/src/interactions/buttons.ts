@@ -14,9 +14,14 @@ import {
   getGuildConfigCached,
   getCategoriesCached,
 } from "../lib/configCache.js";
-import { buildCloseConfirm, buildTicketControls } from "../lib/embeds.js";
+import {
+  buildCloseConfirm,
+  buildConfirmPaymentRow,
+  buildTicketControls,
+} from "../lib/embeds.js";
 import { isStaff } from "../lib/permissions.js";
-import { closeTicket } from "../lib/ticketManager.js";
+import { pendingPaymentProof } from "../lib/paymentProof.js";
+import { closeTicket, setTicketPaid } from "../lib/ticketManager.js";
 import {
   handlePersonCountChoice,
   handlePersonFormNext,
@@ -137,6 +142,49 @@ const claimButton: ButtonHandler = {
       content: t("ticket.claim.claimedBy", guildConfig.language, {
         "claimed_by.mention": `<@${interaction.user.id}>`,
       }),
+    });
+  },
+};
+
+const confirmPaidButton: ButtonHandler = {
+  prefix: "confirmPaid",
+  async run(interaction) {
+    if (!interaction.inCachedGuild()) return;
+    const ticket = ticketFromInteraction(interaction);
+    if (!ticket) {
+      await interaction.reply({
+        content: t("ticket.close.notInTicket"),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    const guildConfig = getGuildConfigCached(interaction.guildId!);
+    const category =
+      getCategoriesCached(interaction.guildId!).find(
+        (c) => c.id === ticket.categoryId,
+      ) ?? null;
+    const member = await interaction.guild!.members.fetch(interaction.user.id);
+    if (!isStaff(member, guildConfig, category)) {
+      await interaction.reply({
+        content: t("ticket.confirmPaid.notStaff", guildConfig.language),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    await interaction.deferUpdate();
+    pendingPaymentProof.delete(ticket.id);
+    if (!ticket.paid) {
+      await setTicketPaid(
+        interaction.guild!,
+        ticket,
+        true,
+        guildConfig,
+        interaction.user.id,
+      );
+    }
+    await interaction.editReply({
+      components: [buildConfirmPaymentRow(ticket.id, { confirmed: true })],
     });
   },
 };
@@ -296,6 +344,7 @@ export const buttonHandlers: ButtonHandler[] = [
   personCountButton,
   personFormNextButton,
   claimButton,
+  confirmPaidButton,
   closeConfirmButton, // must be registered before closeButton (prefix match order)
   closeReasonButton,
   closeButton,
