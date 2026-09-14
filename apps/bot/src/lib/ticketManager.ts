@@ -471,6 +471,10 @@ export async function closeTicket(args: {
 
   // 3. Persist
   repos.tickets.markClosed(db, ticket.id, closedBy.id, reason, transcriptUrl);
+  const closedTicket = repos.tickets.getTicket(db, ticket.id);
+  if (closedTicket) {
+    await refreshTicketPipeline(channel, closedTicket, guildConfig);
+  }
 
   // 4. DM the opener (close embed + feedback prompt)
   if (opener) {

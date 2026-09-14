@@ -148,15 +148,22 @@ export function buildConfirmPaymentRow(
 }
 
 export interface PipelineStage {
+  /** "reservation": buyer opted to reserve (or staff reserved manually) — go
+   *  through Reserved. "direct": buying right now, no reservation involved —
+   *  skip straight from Paid to Closed instead of a permanently-empty
+   *  "Reserved" step. */
+  track: "reservation" | "direct";
   reserved: boolean;
   paid: boolean;
+  /** Reservation fulfilled (reservation track) or the ticket closed (direct track). */
   done: boolean;
 }
 
 /**
- * A compact "Ordered → Reserved → Paid → Done" status line, kept in the
- * ticket's pinned controls message and re-rendered in place whenever any
- * stage changes, so buyers and staff can see order progress at a glance
+ * A compact status line — "Ordered → Reserved → Paid → Done" for reservation
+ * tickets, "Ordered → Paid → Closed" for a buyer purchasing right now — kept
+ * in the ticket's pinned controls message and re-rendered in place whenever
+ * any stage changes, so buyers and staff can see order progress at a glance
  * without scrolling for the last status message.
  */
 export function buildPipelineEmbed(stage: PipelineStage): EmbedBuilder {
@@ -169,16 +176,20 @@ export function buildPipelineEmbed(stage: PipelineStage): EmbedBuilder {
       : stage.reserved
         ? 0x5865f2
         : 0x99aab5;
-  return new EmbedBuilder()
-    .setColor(color)
-    .setDescription(
-      [
-        step("Ordered", true),
-        step("Reserved", stage.reserved),
-        step("Paid", stage.paid),
-        step("Done", stage.done),
-      ].join("  →  "),
-    );
+  const steps =
+    stage.track === "reservation"
+      ? [
+          step("Ordered", true),
+          step("Reserved", stage.reserved),
+          step("Paid", stage.paid),
+          step("Done", stage.done),
+        ]
+      : [
+          step("Ordered", true),
+          step("Paid", stage.paid),
+          step("Closed", stage.done),
+        ];
+  return new EmbedBuilder().setColor(color).setDescription(steps.join("  →  "));
 }
 
 /** Claim + Reserve + Close buttons shown in the ticket channel. */

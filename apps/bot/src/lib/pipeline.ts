@@ -8,14 +8,31 @@ import {
   type PipelineStage,
 } from "./embeds.js";
 
-/** Current pipeline stage for a ticket, derived from its linked reservation (if any). */
+/**
+ * Current pipeline stage for a ticket. A ticket is on the "reservation" track
+ * once it has (or is meant to get) a reservation — either one already exists,
+ * or the buyer answered "Yes" to the "is this a reservation?" prompt. Every
+ * other ticket (no reservation prompt, or the buyer said they're buying right
+ * now) is "direct": no Reserved step, and "done" means the ticket got closed
+ * rather than a reservation being marked fulfilled.
+ */
 export function computePipelineStage(ticket: TicketRecord): PipelineStage {
-  const reservation = repos.reservations.getByTicket(getDb(), ticket.id);
+  const db = getDb();
+  const reservation = repos.reservations.getByTicket(db, ticket.id);
   const active = reservation && reservation.status !== "cancelled";
+  const wantsReservation = repos.tickets
+    .getFormResponses(db, ticket.id)
+    .some((r) => r.fieldKey === "is_reservation" && r.value === "Yes");
+  const track: PipelineStage["track"] =
+    active || wantsReservation ? "reservation" : "direct";
   return {
+    track,
     reserved: !!active,
     paid: ticket.paid,
-    done: reservation?.status === "done",
+    done:
+      track === "reservation"
+        ? reservation?.status === "done"
+        : ticket.status === "closed",
   };
 }
 
