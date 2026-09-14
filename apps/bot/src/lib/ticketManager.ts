@@ -24,9 +24,11 @@ import {
 import { repos, transcriptsDir } from "@ticketbot/db";
 import { getDb } from "./db.js";
 import { buildContext } from "./context.js";
-import { buildRatingRow, buildTicketControls } from "./embeds.js";
+import { buildRatingRow } from "./embeds.js";
 import { buildEmbedWithAssets } from "./embedAssets.js";
 import { buildTicketOverwrites, staffRoleIdsFor } from "./permissions.js";
+import { buildControlsPayload, refreshTicketPipeline } from "./pipeline.js";
+import { extractReservationFields } from "./reservationExtract.js";
 import { hit } from "./cooldown.js";
 import { logger } from "./logger.js";
 
@@ -139,6 +141,48 @@ export async function createTicket(args: {
     })),
   });
 
+  // Skip the manual "📌 Reserve" click when the buyer already told us this is
+  // a reservation and the category's form is fully validated — see the
+  // `is_reservation` synthetic answer folded in by completeOpen.
+  let reservationCreated = false;
+  if (
+    category.askReservation &&
+    (args.answers ?? []).find((a) => a.key === "is_reservation")?.value ===
+      "Yes"
+  ) {
+    try {
+      const fields = extractReservationFields(
+        repos.tickets.getFormResponses(db, ticket.id),
+      );
+      repos.reservations.createReservation(db, {
+        guildId: guild.id,
+        ticketId: ticket.id,
+        channelId: channel.id,
+        buyerUserId: opener.id,
+        buyerTag: opener.displayName || opener.user.username,
+        gakuranName: fields.gakuranName,
+        robloxUser: fields.robloxUser,
+        qty: fields.qty,
+        breakdown: fields.breakdown,
+        addedBy: null,
+      });
+      repos.audit.logAudit(db, {
+        guildId: guild.id,
+        actorId: opener.id,
+        action: "reservation.add",
+        summary: `Auto-reserved for ${fields.gakuranName || opener.user.username}${fields.qty ? ` (${fields.qty} RR's)` : ""}`,
+      });
+      const budget = guildConfig.reservationsRobuxBudget;
+      repos.jobs.enqueueJob(db, guild.id, "post_stock_update", {
+        robux: budget,
+        previous: budget,
+      });
+      reservationCreated = true;
+    } catch (err) {
+      logger.error("auto-reserve failed", ticket.id, err);
+    }
+  }
+
   const ctx = buildContext({ guild, opener, category, ticket });
   injectFormTokens(ctx, args.answers ?? []);
 
@@ -181,15 +225,19 @@ export async function createTicket(args: {
   // The controls live in their own message, kept near the bottom of the
   // channel by keepControlsSticky, so only the buttons — not the welcome
   // embed / form responses — need to survive a long conversation.
-  const controlsMsg = await channel.send({
-    content: t("ticket.controlsLabel", guildConfig.language),
-    components: [
-      buildTicketControls(ticket.id, {
-        claimEnabled: guildConfig.claimingEnabled,
-      }),
-    ],
-  });
+  const controlsMsg = await channel.send(
+    buildControlsPayload(ticket, guildConfig, { reserved: reservationCreated }),
+  );
   repos.tickets.setControlsMessageId(db, ticket.id, controlsMsg.id);
+
+  if (reservationCreated) {
+    await channel
+      .send({
+        content: t("reservation.autoAdded", lang),
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => {});
+  }
 
   const logCh = await fetchTextChannel(guild, guildConfig.logChannelId);
   if (logCh) {
@@ -238,14 +286,7 @@ export async function keepControlsSticky(
     .catch(() => {});
 
   const controlsMsg = await channel
-    .send({
-      content: t("ticket.controlsLabel", guildConfig.language),
-      components: [
-        buildTicketControls(ticket.id, {
-          claimEnabled: guildConfig.claimingEnabled,
-        }),
-      ],
-    })
+    .send(buildControlsPayload(ticket, guildConfig))
     .catch((err) => {
       logger.warn("keepControlsSticky: repost failed", ticket.id, err);
       return null;
@@ -605,6 +646,10 @@ export async function setTicketPaid(
       allowedMentions: actorId ? { users: [actorId] } : undefined,
     })
     .catch((err) => logger.error("setTicketPaid: message post failed", err));
+
+  await refreshTicketPipeline(ch as TextChannel, ticket, guildConfig, {
+    paid,
+  });
 
   return { moved, warning };
 }

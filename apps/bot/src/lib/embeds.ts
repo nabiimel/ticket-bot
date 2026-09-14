@@ -128,7 +128,6 @@ export function buildPanelComponents(
   return rows;
 }
 
-/** Claim + Close buttons shown in the ticket channel. */
 /**
  * Posted in-channel when a buyer attaches what looks like a payment
  * screenshot, so staff can confirm the payment with one click instead of
@@ -148,9 +147,44 @@ export function buildConfirmPaymentRow(
   );
 }
 
+export interface PipelineStage {
+  reserved: boolean;
+  paid: boolean;
+  done: boolean;
+}
+
+/**
+ * A compact "Ordered → Reserved → Paid → Done" status line, kept in the
+ * ticket's pinned controls message and re-rendered in place whenever any
+ * stage changes, so buyers and staff can see order progress at a glance
+ * without scrolling for the last status message.
+ */
+export function buildPipelineEmbed(stage: PipelineStage): EmbedBuilder {
+  const step = (label: string, on: boolean) =>
+    on ? `🟢 ${label}` : `⚪ ${label}`;
+  const color = stage.done
+    ? 0x57f287
+    : stage.paid
+      ? 0xf5a623
+      : stage.reserved
+        ? 0x5865f2
+        : 0x99aab5;
+  return new EmbedBuilder()
+    .setColor(color)
+    .setDescription(
+      [
+        step("Ordered", true),
+        step("Reserved", stage.reserved),
+        step("Paid", stage.paid),
+        step("Done", stage.done),
+      ].join("  →  "),
+    );
+}
+
+/** Claim + Reserve + Close buttons shown in the ticket channel. */
 export function buildTicketControls(
   ticketId: number,
-  opts: { claimed?: boolean; claimEnabled?: boolean } = {},
+  opts: { claimed?: boolean; claimEnabled?: boolean; reserved?: boolean } = {},
 ): ActionRowBuilder<ButtonBuilder> {
   const row = new ActionRowBuilder<ButtonBuilder>();
   if (opts.claimEnabled !== false) {
@@ -167,7 +201,8 @@ export function buildTicketControls(
       .setCustomId(`reserve:${ticketId}`)
       .setLabel("Reserve")
       .setEmoji("📌")
-      .setStyle(ButtonStyle.Secondary),
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(!!opts.reserved),
     new ButtonBuilder()
       .setCustomId(`close:${ticketId}`)
       .setLabel("Close")

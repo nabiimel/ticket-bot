@@ -29,6 +29,7 @@ import { buildContext } from "./context.js";
 import { buildPanelComponents, buildTicketControls } from "./embeds.js";
 import { buildEmbedWithAssets, resolveUploadFiles } from "./embedAssets.js";
 import { buildTicketOverwrites, staffRoleIdsFor } from "./permissions.js";
+import { refreshTicketPipeline } from "./pipeline.js";
 import {
   closeTicket,
   injectFormTokens,
@@ -431,6 +432,16 @@ async function handleReservationDone(
       allowedMentions: { parse: [] },
     })
     .catch((err) => logger.warn("reservation_done log post failed", err));
+
+  if (r.ticketId) {
+    const ticket = repos.tickets.getTicket(db, r.ticketId);
+    const ticketChannel = ticket
+      ? await textChannel(client, r.guildId, ticket.channelId)
+      : null;
+    if (ticket && ticketChannel) {
+      await refreshTicketPipeline(ticketChannel, ticket, cfg, { done: true });
+    }
+  }
 }
 
 const nf = (n: number) => n.toLocaleString("en-US");

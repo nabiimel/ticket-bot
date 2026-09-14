@@ -1,11 +1,5 @@
 import { MessageFlags, type ButtonInteraction } from "discord.js";
-import {
-  groupMultiPersonResponses,
-  robuxCost,
-  t,
-  type ReservationBreakdownEntry,
-  type RobuxRate,
-} from "@ticketbot/shared";
+import { robuxCost, t, type RobuxRate } from "@ticketbot/shared";
 import { repos } from "@ticketbot/db";
 import type { ButtonHandler } from "../registry.js";
 import { getDb } from "../lib/db.js";
@@ -14,24 +8,9 @@ import {
   getCategoriesCached,
 } from "../lib/configCache.js";
 import { isStaff } from "../lib/permissions.js";
+import { buildControlsPayload } from "../lib/pipeline.js";
+import { extractReservationFields } from "../lib/reservationExtract.js";
 import { logger } from "../lib/logger.js";
-
-/** Pull a value out of the ticket form by matching the field key or label. */
-function pickFormValue(
-  responses: { fieldKey: string; fieldLabel: string; value: string }[],
-  test: RegExp,
-): string {
-  const hit = responses.find(
-    (r) => test.test(r.fieldKey) || test.test(r.fieldLabel),
-  );
-  return hit?.value?.trim() ?? "";
-}
-
-/** First run of digits in a string, as a number (e.g. "50 rerolls" -> 50). */
-function firstInt(s: string): number {
-  const m = s.replace(/,/g, "").match(/\d+/);
-  return m ? Math.min(parseInt(m[0], 10), 100000) : 0;
-}
 
 const reserveButton: ButtonHandler = {
   prefix: "reserve",
@@ -82,33 +61,8 @@ const reserveButton: ButtonHandler = {
     // Pull Roblox name / Gakuran name / reroll count from the ticket's form —
     // either one set of fields, or (a multi-person order) one set per person.
     const responses = repos.tickets.getFormResponses(db, ticket.id);
-    const multiPerson = groupMultiPersonResponses(responses);
-
-    let gakuranName: string;
-    let robloxUser: string;
-    let qty: number;
-    let breakdown: ReservationBreakdownEntry[] | null = null;
-
-    if (multiPerson) {
-      breakdown = multiPerson.map(({ name, robloxUser, qty }) => ({
-        name,
-        robloxUser,
-        qty,
-      }));
-      qty = breakdown.reduce((sum, p) => sum + p.qty, 0);
-      const names = breakdown.map((p) => p.name || "?");
-      gakuranName =
-        names.length > 3
-          ? `${names.slice(0, 3).join(", ")} +${names.length - 3} more`
-          : names.join(", ");
-      robloxUser = "";
-    } else {
-      robloxUser = pickFormValue(responses, /roblox/i);
-      gakuranName =
-        pickFormValue(responses, /gakuran/i) ||
-        pickFormValue(responses, /\bign\b|in.?game.?name/i);
-      qty = firstInt(pickFormValue(responses, /re-?roll|\brr'?s?\b|how many/i));
-    }
+    const { gakuranName, robloxUser, qty, breakdown } =
+      extractReservationFields(responses);
 
     repos.reservations.createReservation(db, {
       guildId: ticket.guildId,
@@ -153,7 +107,11 @@ const reserveButton: ButtonHandler = {
     if (over > 0) {
       content += `\n${t("reservation.overBudget", guildConfig.language, { over: over.toLocaleString() })}`;
     }
-    await interaction.reply({
+
+    await interaction.update(
+      buildControlsPayload(ticket, guildConfig, { reserved: true }),
+    );
+    await interaction.followUp({
       content,
       flags: MessageFlags.Ephemeral,
     });
