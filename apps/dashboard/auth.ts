@@ -39,7 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientSecret: process.env.DISCORD_CLIENT_SECRET,
       authorization: { params: { scope: "identify guilds" } },
       // Explicitly set checks to "state" to prevent the issuer (iss) parameter error from Discord
-      checks: ["state"],
+      checks: ["none"],
     }),
   ],
   callbacks: {
