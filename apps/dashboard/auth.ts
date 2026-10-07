@@ -35,11 +35,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   providers: [
     Discord({
-      clientId: process.env.DISCORD_CLIENT_ID,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET,
-      authorization: { params: { scope: "identify guilds" } },
-      // Explicitly set checks to "state" to prevent the issuer (iss) parameter error from Discord
-      checks: ["none"],
+  clientId: process.env.DISCORD_CLIENT_ID,
+  clientSecret: process.env.DISCORD_CLIENT_SECRET,
+  authorization: { params: { scope: "identify guilds" } },
+  issuer: "https://discord.com/api",   // must match what Discord sends, see below
     }),
   ],
   callbacks: {
