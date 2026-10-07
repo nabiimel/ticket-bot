@@ -38,7 +38,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   clientId: process.env.DISCORD_CLIENT_ID,
   clientSecret: process.env.DISCORD_CLIENT_SECRET,
   authorization: { params: { scope: "identify guilds" } },
-  issuer: "https://discord.com/api",   // must match what Discord sends, see below
+  issuer: "https://discord.com",   // must match what Discord sends, see below
     }),
   ],
   callbacks: {
